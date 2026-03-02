@@ -1,0 +1,739 @@
+{
+  "version": 2,
+  "dgSpecHash": "RUx7+u0arps=",
+  "success": true,
+  "projectFilePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\LuanM\\.nuget\\packages\\bcnencoder.net\\2.1.0\\bcnencoder.net.2.1.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\magick.net-q8-anycpu\\14.4.0\\magick.net-q8-anycpu.14.4.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\magick.net.core\\14.4.0\\magick.net.core.14.4.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.0\\microsoft.netcore.platforms.1.1.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\microsoft.netcore.targets\\1.1.0\\microsoft.netcore.targets.1.1.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\microsoft.toolkit.highperformance\\7.0.2\\microsoft.toolkit.highperformance.7.0.2.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\microsoft.win32.primitives\\4.3.0\\microsoft.win32.primitives.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\netstandard.library\\1.6.1\\netstandard.library.1.6.1.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.debian.8-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.debian.8-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.fedora.23-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.fedora.23-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.fedora.24-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.fedora.24-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.native.system\\4.3.0\\runtime.native.system.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.native.system.io.compression\\4.3.0\\runtime.native.system.io.compression.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.native.system.net.http\\4.3.0\\runtime.native.system.net.http.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.native.system.security.cryptography.apple\\4.3.0\\runtime.native.system.security.cryptography.apple.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.opensuse.13.2-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.opensuse.13.2-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.opensuse.42.1-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.opensuse.42.1-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.osx.10.10-x64.runtime.native.system.security.cryptography.apple\\4.3.0\\runtime.osx.10.10-x64.runtime.native.system.security.cryptography.apple.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.osx.10.10-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.osx.10.10-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.rhel.7-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.rhel.7-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.ubuntu.14.04-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.ubuntu.14.04-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.ubuntu.16.04-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.ubuntu.16.04-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\runtime.ubuntu.16.10-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.ubuntu.16.10-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\sharpdx\\4.2.0\\sharpdx.4.2.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\sharpdx.direct3d11\\4.2.0\\sharpdx.direct3d11.4.2.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\sharpdx.dxgi\\4.2.0\\sharpdx.dxgi.4.2.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\sharpdx.mathematics\\4.2.0\\sharpdx.mathematics.4.2.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.appcontext\\4.3.0\\system.appcontext.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.buffers\\4.3.0\\system.buffers.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.collections\\4.3.0\\system.collections.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.collections.concurrent\\4.3.0\\system.collections.concurrent.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.console\\4.3.0\\system.console.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.diagnostics.debug\\4.3.0\\system.diagnostics.debug.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.diagnostics.diagnosticsource\\4.3.0\\system.diagnostics.diagnosticsource.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.diagnostics.tools\\4.3.0\\system.diagnostics.tools.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.diagnostics.tracing\\4.3.0\\system.diagnostics.tracing.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.globalization\\4.3.0\\system.globalization.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.globalization.calendars\\4.3.0\\system.globalization.calendars.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.globalization.extensions\\4.3.0\\system.globalization.extensions.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.io\\4.3.0\\system.io.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.io.compression\\4.3.0\\system.io.compression.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.io.compression.zipfile\\4.3.0\\system.io.compression.zipfile.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.io.filesystem\\4.3.0\\system.io.filesystem.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.io.filesystem.primitives\\4.3.0\\system.io.filesystem.primitives.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.linq\\4.3.0\\system.linq.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.linq.expressions\\4.3.0\\system.linq.expressions.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.net.http\\4.3.0\\system.net.http.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.net.primitives\\4.3.0\\system.net.primitives.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.net.sockets\\4.3.0\\system.net.sockets.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.objectmodel\\4.3.0\\system.objectmodel.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.reflection\\4.3.0\\system.reflection.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.reflection.emit\\4.3.0\\system.reflection.emit.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.reflection.emit.ilgeneration\\4.3.0\\system.reflection.emit.ilgeneration.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.reflection.emit.lightweight\\4.3.0\\system.reflection.emit.lightweight.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.reflection.extensions\\4.3.0\\system.reflection.extensions.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.reflection.primitives\\4.3.0\\system.reflection.primitives.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.reflection.typeextensions\\4.3.0\\system.reflection.typeextensions.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.resources.resourcemanager\\4.3.0\\system.resources.resourcemanager.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.runtime\\4.3.0\\system.runtime.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.runtime.extensions\\4.3.0\\system.runtime.extensions.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.runtime.handles\\4.3.0\\system.runtime.handles.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.runtime.interopservices\\4.3.0\\system.runtime.interopservices.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.runtime.interopservices.runtimeinformation\\4.3.0\\system.runtime.interopservices.runtimeinformation.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.runtime.numerics\\4.3.0\\system.runtime.numerics.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.security.cryptography.algorithms\\4.3.0\\system.security.cryptography.algorithms.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.security.cryptography.cng\\4.3.0\\system.security.cryptography.cng.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.security.cryptography.csp\\4.3.0\\system.security.cryptography.csp.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.security.cryptography.encoding\\4.3.0\\system.security.cryptography.encoding.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.security.cryptography.openssl\\4.3.0\\system.security.cryptography.openssl.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.security.cryptography.primitives\\4.3.0\\system.security.cryptography.primitives.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.security.cryptography.x509certificates\\4.3.0\\system.security.cryptography.x509certificates.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.text.encoding\\4.3.0\\system.text.encoding.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.text.encoding.extensions\\4.3.0\\system.text.encoding.extensions.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.text.regularexpressions\\4.3.0\\system.text.regularexpressions.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.threading\\4.3.0\\system.threading.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.threading.tasks\\4.3.0\\system.threading.tasks.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.threading.tasks.extensions\\4.3.0\\system.threading.tasks.extensions.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.threading.timer\\4.3.0\\system.threading.timer.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.xml.readerwriter\\4.3.0\\system.xml.readerwriter.4.3.0.nupkg.sha512",
+    "C:\\Users\\LuanM\\.nuget\\packages\\system.xml.xdocument\\4.3.0\\system.xml.xdocument.4.3.0.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-273h-m46v-96q4",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-2gq3-ww97-wfjm",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-39h3-g67r-7g3c",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-3j4x-rwrx-xxj9",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-3q5f-gmjc-38r8",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-42p5-62qq-mmh7",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-543g-8grm-9cw6",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-5vx3-wx4q-6cj8",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-6hgw-6x87-578x",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-6hjr-v6g4-3fm8",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-6j5f-24fw-pqp4",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-72hf-fj62-w6j4",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-7355-pwx2-pm84",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-782x-jh29-9mf7",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-7rvh-xqp3-pr8j",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-8jvj-p28h-9gm7",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-96pc-27rx-pr36",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-9ccg-6pjw-x645",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-9pp9-cfwx-54rm",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-9vj4-wc7r-p844",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-cfh4-9f7v-fhrc",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-cjc8-g9w8-chfw",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-fh55-q5pj-pxgw",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-fwqw-2x5x-w566",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-g2pr-qxjg-7r2w",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-gm37-qx7w-p258",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-gq5v-qf8q-fp77",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-gwr3-x37h-h84v",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-gxcx-qjqp-8vjw",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-hm4x-r5hc-794f",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-jv4p-gjwq-9r2j",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-mxvv-97wh-cfmm",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-p27m-hp98-6637",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-p33r-fqw2-rqmm",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-p863-5fgm-rgq4",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-pqgj-2p96-rx85",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-qh3h-j545-h8c9",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-qp29-wxp5-wh82",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-qp59-x883-77qv",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-qpgx-jfcq-r59f",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-r99p-5442-q2x2",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-rw6c-xp26-225v",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-v7g2-m8c5-mf84",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-v994-63cg-9wj3",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-vhqj-f5cj-9x8h",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma alta vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-vmhh-8rxq-fp9g",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-vpxv-r9pg-7gpr",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-w8mw-frc6-r7m8",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-wfx3-6g53-9fgc",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-wg3g-gvx5-2pmv",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-wgxp-q8xq-wpp9",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-xgm3-v4r9-wfgm",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1901",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma baixa vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-xpg8-7m6m-jf56",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "O pacote 'Magick.NET-Q8-AnyCPU' 14.4.0 tem uma moderado vulnerabilidade de gravidade conhecida, https://github.com/advisories/GHSA-xwc6-v6g8-pw2h",
+      "projectPath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "warningLevel": 1,
+      "filePath": "E:\\EasyOptmizer\\EasyOptimizer-V\\EasyOptimizer-V.csproj",
+      "libraryId": "Magick.NET-Q8-AnyCPU",
+      "targetGraphs": [
+        "net9.0-windows7.0"
+      ]
+    }
+  ]
+}
