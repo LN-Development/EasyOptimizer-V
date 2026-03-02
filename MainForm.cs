@@ -20,6 +20,7 @@ namespace EasyOptimizerV
         private ToolStrip? toolStrip;
         private System.Collections.Generic.List<YtdFile> loadedYtds = new System.Collections.Generic.List<YtdFile>();
         private System.Collections.Generic.Dictionary<YtdFile, string> ytdFilePaths = new System.Collections.Generic.Dictionary<YtdFile, string>();
+        private System.Collections.Generic.Dictionary<YtdFile, WtdFile> wtdBackingFiles = new System.Collections.Generic.Dictionary<YtdFile, WtdFile>();
         private TextBox? searchTextBox;
         private string currentSearch = "";
         private string currentPreviewRes = "128";
@@ -149,7 +150,7 @@ namespace EasyOptimizerV
             };
 
             Button btnOpen = new Button();
-            btnOpen.Text = "Import YTD";
+            btnOpen.Text = "Import Files";
             btnOpen.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnOpen.BackColor = Theme.Primary;
             btnOpen.ForeColor = Color.White;
@@ -345,13 +346,16 @@ namespace EasyOptimizerV
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
-                ofd.Filter = "YTD Files (*.ytd)|*.ytd|All Files (*.*)|*.*";
+                ofd.Filter = "Texture Dicts (*.ytd;*.wtd)|*.ytd;*.wtd|YTD Files (*.ytd)|*.ytd|WTD Files (*.wtd)|*.wtd|All Files (*.*)|*.*";
                 ofd.Multiselect = true;
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     foreach (string file in ofd.FileNames)
                     {
-                        AddYtd(file);
+                        if (file.EndsWith(".wtd", StringComparison.OrdinalIgnoreCase))
+                            AddWtd(file);
+                        else
+                            AddYtd(file);
                     }
                     RenderTextures();
                 }
@@ -362,29 +366,36 @@ namespace EasyOptimizerV
         {
             using (FolderBrowserDialog fbd = new FolderBrowserDialog())
             {
-                fbd.Description = "Select folder to import YTD files recursively";
+                fbd.Description = "Select folder to import YTD/WTD files recursively";
                 fbd.UseDescriptionForTitle = true;
                 if (fbd.ShowDialog() == DialogResult.OK)
                 {
                     try
                     {
-                        string[] files = Directory.GetFiles(fbd.SelectedPath, "*.ytd", SearchOption.AllDirectories);
-                        if (files.Length == 0)
+                        string[] ytdFiles = Directory.GetFiles(fbd.SelectedPath, "*.ytd", SearchOption.AllDirectories);
+                        string[] wtdFiles = Directory.GetFiles(fbd.SelectedPath, "*.wtd", SearchOption.AllDirectories);
+                        var allFiles = new System.Collections.Generic.List<string>(ytdFiles);
+                        allFiles.AddRange(wtdFiles);
+
+                        if (allFiles.Count == 0)
                         {
-                            MessageBox.Show("No YTD files found in the selected folder.", "Import Folder", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            MessageBox.Show("No YTD or WTD files found in the selected folder.", "Import Folder", MessageBoxButtons.OK, MessageBoxIcon.Information);
                             return;
                         }
 
-                        if (statusLabel != null) statusLabel.Text = $"Importing {files.Length} files...";
+                        if (statusLabel != null) statusLabel.Text = $"Importing {allFiles.Count} files...";
                         Application.DoEvents();
 
-                        foreach (string file in files)
+                        foreach (string file in allFiles)
                         {
-                            AddYtd(file);
+                            if (file.EndsWith(".wtd", StringComparison.OrdinalIgnoreCase))
+                                AddWtd(file);
+                            else
+                                AddYtd(file);
                         }
                         RenderTextures();
-                        
-                        MessageBox.Show($"Successfully imported {files.Length} YTD files.", "Import Folder", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        MessageBox.Show($"Successfully imported {allFiles.Count} files ({ytdFiles.Length} YTD, {wtdFiles.Length} WTD).", "Import Folder", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                     catch (Exception ex)
                     {
@@ -398,6 +409,7 @@ namespace EasyOptimizerV
         {
             loadedYtds.Clear();
             ytdFilePaths.Clear();
+            wtdBackingFiles.Clear();
             expandedYtds.Clear();
             expandedVirtualFolders.Clear();
             duplicateGroups.Clear();
@@ -417,11 +429,14 @@ namespace EasyOptimizerV
                 {
                     if (ytdFilePaths.TryGetValue(ytd, out string? path))
                     {
-                        File.WriteAllBytes(path, ytd.Save());
+                        if (wtdBackingFiles.TryGetValue(ytd, out WtdFile? wtd))
+                            File.WriteAllBytes(path, wtd.Save());
+                        else
+                            File.WriteAllBytes(path, ytd.Save());
                         savedCount++;
                     }
                 }
-                MessageBox.Show($"Successfully saved {savedCount} YTD files.", "Save All", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show($"Successfully saved {savedCount} files.", "Save All", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 if (statusLabel != null) statusLabel.Text = $"Saved {savedCount} files.";
             }
             catch (Exception ex)
@@ -456,6 +471,34 @@ namespace EasyOptimizerV
             catch (Exception ex)
             {
                 MessageBox.Show($"Error loading YTD {filename}: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void AddWtd(string filename)
+        {
+            try
+            {
+                if (statusLabel != null) statusLabel.Text = $"Loading {Path.GetFileName(filename)}...";
+                Application.DoEvents();
+
+                WtdFile wtd = WtdFile.Load(filename);
+                YtdFile ytd = wtd.AsYtd;
+
+                loadedYtds.Add(ytd);
+                ytdFilePaths[ytd] = filename;
+                wtdBackingFiles[ytd] = wtd;
+
+                int count = ytd.TextureDict?.Textures?.data_items?.Length ?? 0;
+                if (statusLabel != null) statusLabel.Text = $"Loaded {count} textures from {ytd.Name}";
+
+                duplicateGroups.Clear();
+                showingDuplicates = false;
+                expandedVirtualFolders.Clear();
+                RenderTextures();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading WTD {filename}: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -530,7 +573,8 @@ namespace EasyOptimizerV
             {
                 // Add Folder Header
                 bool isExpanded = expandedYtds.Contains(ytd);
-                var folderCard = new YtdFolderCard(ytd, isExpanded, targetWidth);
+                string fileType = wtdBackingFiles.ContainsKey(ytd) ? "WTD" : "YTD";
+                var folderCard = new YtdFolderCard(ytd, isExpanded, targetWidth, fileType);
                 folderCard.OnToggleRequested += (card) => {
                     bool wasExpanded = expandedYtds.Contains(card.Ytd!);
                     expandedYtds.Clear(); // Accordion for YTDs
@@ -576,7 +620,7 @@ namespace EasyOptimizerV
             
             if (statusLabel != null)
             {
-               statusLabel.Text = $"Loaded {loadedYtds.Count} YTDs. Showing {totalVisibleTextures} textures.";
+               statusLabel.Text = $"Loaded {loadedYtds.Count} files. Showing {totalVisibleTextures} textures.";
             }
 
             flowLayoutPanel.ResumeLayout();

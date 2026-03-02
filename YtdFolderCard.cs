@@ -11,6 +11,7 @@ namespace EasyOptimizerV
         public YtdFile? Ytd { get; }
         public string? VirtualId { get; }
         public string? VirtualName { get; }
+        public string FileType { get; } = "YTD";
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public bool IsExpanded { get; set; }
         public event Action<YtdFolderCard>? OnToggleRequested;
@@ -20,9 +21,10 @@ namespace EasyOptimizerV
         private Color statusColor = Color.Gray;
         private double totalMib = 0;
 
-        public YtdFolderCard(YtdFile ytd, bool isExpanded, int width)
+        public YtdFolderCard(YtdFile ytd, bool isExpanded, int width, string fileType = "YTD")
         {
             this.Ytd = ytd;
+            this.FileType = fileType;
             this.IsExpanded = isExpanded;
             this.Width = width;
             this.Height = 60; // Thinner header-like height
@@ -109,6 +111,23 @@ namespace EasyOptimizerV
                 g.FillRectangle(iconBrush, iconRect.X, iconRect.Y, iconSize / 2, 8);
             }
 
+            // File type badge (YTD = blue, WTD = amber)
+            float badgeX = iconRect.Right + 12;
+            if (Ytd != null && FileType != null)
+            {
+                Color badgeColor = FileType == "WTD" ? Color.FromArgb(255, 179, 71) : Color.FromArgb(60, 120, 216);
+                string badgeText = FileType;
+                SizeF badgeSize = g.MeasureString(badgeText, Theme.FontSmallBold);
+                RectangleF badgeRect = new RectangleF(badgeX, 13, badgeSize.Width + 8, badgeSize.Height + 2);
+                using (var badgeBrush = new SolidBrush(Color.FromArgb(40, badgeColor)))
+                    g.FillRectangle(badgeBrush, badgeRect);
+                using (var badgePen = new Pen(badgeColor, 1))
+                    g.DrawRectangle(badgePen, badgeRect.X, badgeRect.Y, badgeRect.Width, badgeRect.Height);
+                using (var badgeTextBrush = new SolidBrush(badgeColor))
+                    g.DrawString(badgeText, Theme.FontSmallBold, badgeTextBrush, badgeRect.X + 4, badgeRect.Y + 1);
+                badgeX += badgeRect.Width + 6;
+            }
+
             // Text info
             string name = VirtualName ?? Ytd?.Name ?? "Unknown.ytd";
             string infoText = totalSizeInfo;
@@ -117,8 +136,8 @@ namespace EasyOptimizerV
                 int count = Ytd.TextureDict?.Textures?.data_items?.Length ?? 0;
                 infoText = $"{count} items  •  {totalSizeInfo}";
             }
-            
-            float textX = iconRect.Right + 12;
+
+            float textX = badgeX;
             g.DrawString(name, Theme.FontTitle, Brushes.White, textX, 12);
 
             // Item count/info in default color (with MiB highlighting if applicable)
