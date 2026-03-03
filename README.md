@@ -1,5 +1,34 @@
 # EasyOptimizer-V
 
+To-do
+
+## HOW TO USE
+
+To-do
+
+## Discord
+
+[Discord](https://discord.gg/SHkvymn6gN)
+
+## Dependencies
+
+Codewalker
+
+## Installation
+
+To-do
+
+## TO-DO
+
+To-do
+
+## Credits
+
+[CodeWalker](https://github.com/dexyfex/CodeWalker)
+
+Thanks to ook3d for .wtd support
+
+
 ## License
 
 Copyright (C) 2026 LN and ook3d
