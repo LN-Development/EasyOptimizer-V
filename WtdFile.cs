@@ -113,7 +113,8 @@ namespace EasyOptimizerV
                 int texOffset = (int)(texPtrs[i] - VIRTUAL_BASE);
                 if (texOffset < 0 || texOffset + 80 > virtualData.Length) continue;
 
-                var tex = ReadRsc5Texture(virtualData, physicalData, texOffset);
+                uint originalHash = (i < hashes.Length) ? hashes[i] : 0;
+                var tex = ReadRsc5Texture(virtualData, physicalData, texOffset, originalHash);
                 if (tex != null)
                     textures.Add(tex);
             }
@@ -127,7 +128,7 @@ namespace EasyOptimizerV
             AsYtd.Name = Path.GetFileName(FilePath ?? "unknown.wtd");
         }
 
-        private Texture ReadRsc5Texture(byte[] virtualData, byte[] physicalData, int offset)
+        private Texture ReadRsc5Texture(byte[] virtualData, byte[] physicalData, int offset, uint originalHash)
         {
             int pos = offset;
 
@@ -197,7 +198,7 @@ namespace EasyOptimizerV
             // Create CodeWalker Texture
             var texture = new Texture();
             texture.Name = name;
-            texture.NameHash = JenkHash.GenHash(name.ToLowerInvariant());
+            texture.NameHash = originalHash != 0 ? originalHash : JenkHash.GenHash(name.ToLowerInvariant());
             texture.Width = width;
             texture.Height = height;
             texture.Depth = 1;
@@ -227,7 +228,8 @@ namespace EasyOptimizerV
                 PrevTexOffset = prevTexOffset,
                 NextTexOffset = nextTexOffset,
                 Unknown13 = unknown13,
-                OriginalNameRaw = name
+                OriginalNameRaw = name,
+                OriginalHash = originalHash
             };
 
             return texture;
@@ -287,22 +289,39 @@ namespace EasyOptimizerV
                 Array.Copy(pixelChunks[i], 0, physicalData, physicalOffsets[i], pixelChunks[i].Length);
             }
 
+            // Build hash-texture index pairs and sort by hash (GTA4 requires sorted hash table for binary search)
             uint[] hashes = new uint[texCount];
             for (int i = 0; i < texCount; i++)
-                hashes[i] = textures[i].NameHash;
+            {
+                string name = textures[i].Name ?? "unknown";
+                if (savedMetadata.TryGetValue(name, out var meta) && meta.OriginalHash != 0)
+                    hashes[i] = meta.OriginalHash;
+                else
+                    hashes[i] = textures[i].NameHash;
+            }
 
-            // Write hash array
+            // Create sorted index mapping
+            int[] sortedIndices = new int[texCount];
+            for (int i = 0; i < texCount; i++) sortedIndices[i] = i;
+            Array.Sort(sortedIndices, (a, b) => hashes[a].CompareTo(hashes[b]));
+
+            // Write hash array (sorted)
             for (int i = 0; i < texCount; i++)
-                WriteU32(virtualData, hashArrayOffset + i * 4, hashes[i]);
+                WriteU32(virtualData, hashArrayOffset + i * 4, hashes[sortedIndices[i]]);
 
-            // Write texture structs and pointer array
+            // Write texture structs and pointer array (in sorted hash order)
             for (int i = 0; i < texCount; i++)
             {
+                int srcIdx = sortedIndices[i];
                 uint texStructAddr = VIRTUAL_BASE + (uint)(texStructsOffset + i * 80);
                 WriteU32(virtualData, ptrArrayOffset + i * 4, texStructAddr);
 
+                // Calculate correct prev/next linked list pointers for the new layout
+                uint prevAddr = (i > 0) ? VIRTUAL_BASE + (uint)(texStructsOffset + (i - 1) * 80) : 0;
+                uint nextAddr = (i < texCount - 1) ? VIRTUAL_BASE + (uint)(texStructsOffset + (i + 1) * 80) : 0;
+
                 WriteRsc5Texture(virtualData, texStructsOffset + i * 80,
-                    textures[i], nameOffsets[i], physicalOffsets[i]);
+                    textures[srcIdx], nameOffsets[srcIdx], physicalOffsets[srcIdx], prevAddr, nextAddr);
             }
 
             // Write name strings
@@ -364,7 +383,7 @@ namespace EasyOptimizerV
             return output;
         }
 
-        private void WriteRsc5Texture(byte[] data, int offset, Texture tex, int nameVirtualOffset, int physicalDataOffset)
+        private void WriteRsc5Texture(byte[] data, int offset, Texture tex, int nameVirtualOffset, int physicalDataOffset, uint prevAddr, uint nextAddr)
         {
             string name = tex.Name ?? "unknown";
             WtdTextureMetadata meta = null;
@@ -384,7 +403,9 @@ namespace EasyOptimizerV
             WriteU16(data, pos, tex.Width); pos += 2;                   // 28: Width
             WriteU16(data, pos, tex.Height); pos += 2;                  // 30: Height
             WriteU32(data, pos, (uint)tex.Format); pos += 4;            // 32: Format
-            WriteU16(data, pos, tex.Stride); pos += 2;                  // 36: Stride
+            // Calculate correct GTA4 stride: Stride * Height must equal mip0 data size
+            // (matching CodeX's Rsc5Texture.CalcDataSize which uses Stride * Height)
+            WriteU16(data, pos, CalculateGta4Stride(tex)); pos += 2;    // 36: Stride
             data[pos++] = meta?.TextureType ?? 0;                       // 38: TextureType
             data[pos++] = tex.Levels;                                   // 39: MipLevels
             WriteSingle(data, pos, meta?.Unknown7 ?? 0f); pos += 4;     // 40: Unknown7
@@ -393,10 +414,28 @@ namespace EasyOptimizerV
             WriteSingle(data, pos, meta?.Unknown10 ?? 0f); pos += 4;    // 52: Unknown10
             WriteSingle(data, pos, meta?.Unknown11 ?? 0f); pos += 4;    // 56: Unknown11
             WriteSingle(data, pos, meta?.Unknown12 ?? 0f); pos += 4;    // 60: Unknown12
-            WriteU32(data, pos, meta?.PrevTexOffset ?? 0); pos += 4;    // 64: PrevTextureInfoOffset
-            WriteU32(data, pos, meta?.NextTexOffset ?? 0); pos += 4;    // 68: NextTextureInfoOffset
+            WriteU32(data, pos, prevAddr); pos += 4;                    // 64: PrevTextureInfoOffset
+            WriteU32(data, pos, nextAddr); pos += 4;                    // 68: NextTextureInfoOffset
             WriteU32(data, pos, PHYSICAL_BASE + (uint)physicalDataOffset); pos += 4; // 72: DataPtr
             WriteU32(data, pos, meta?.Unknown13 ?? 0); pos += 4;        // 76: Unknown13
+        }
+
+        private ushort CalculateGta4Stride(Texture tex)
+        {
+            if (IsBlockCompressed(tex.Format))
+            {
+                // GTA4 stride for block-compressed: total_mip0_size / height
+                // This ensures Stride * Height == total mip0 data (as CodeX's CalcDataSize expects)
+                int blocksWide = Math.Max(1, (tex.Width + 3) / 4);
+                int blocksHigh = Math.Max(1, (tex.Height + 3) / 4);
+                int blockSize = (tex.Format == TextureFormat.D3DFMT_DXT1 || tex.Format == TextureFormat.D3DFMT_ATI1) ? 8 : 16;
+                int totalMip0 = blocksWide * blocksHigh * blockSize;
+                return (ushort)(totalMip0 / Math.Max(1, (int)tex.Height));
+            }
+            else
+            {
+                return tex.Stride;
+            }
         }
 
         private int CalculateTextureDataSize(TextureFormat format, int width, int height, int stride, int levels)
@@ -434,7 +473,9 @@ namespace EasyOptimizerV
         {
             return format == TextureFormat.D3DFMT_DXT1
                 || format == TextureFormat.D3DFMT_DXT3
-                || format == TextureFormat.D3DFMT_DXT5;
+                || format == TextureFormat.D3DFMT_DXT5
+                || format == TextureFormat.D3DFMT_ATI1
+                || format == TextureFormat.D3DFMT_ATI2;
         }
 
         private int GetBytesPerPixel(TextureFormat format)
@@ -567,6 +608,7 @@ namespace EasyOptimizerV
             public uint NextTexOffset;
             public uint Unknown13;
             public string OriginalNameRaw;
+            public uint OriginalHash;
         }
     }
 }
