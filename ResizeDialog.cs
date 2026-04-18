@@ -14,10 +14,14 @@ namespace EasyOptimizerV
 
         private NumericUpDown widthInput;
         private NumericUpDown heightInput;
+        private CheckBox lockAspect;
         private ComboBox formatCombo;
         private NumericUpDown mipsInput;
         private Button okButton;
         private Button cancelButton;
+
+        private bool isUpdating = false;
+        private double aspectRatio;
 
         public ResizeDialog(int currentWidth, int currentHeight)
         {
@@ -157,6 +161,34 @@ namespace EasyOptimizerV
             this.Controls.Add(CreateLabel("Height", startY + spacing));
             heightInput = new NumericUpDown() { Minimum = 1, Maximum = 8192, Value = currentHeight };
             this.Controls.Add(CreateInput(heightInput, startY + spacing, inputW, false));
+
+            aspectRatio = (double)currentWidth / currentHeight;
+
+            lockAspect = new CheckBox() {
+                Text = "Lock Aspect Ratio",
+                Checked = true,
+                ForeColor = Color.FromArgb(160, 160, 160),
+                Location = new Point(inputX, startY + spacing + 48),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F)
+            };
+            this.Controls.Add(lockAspect);
+
+            widthInput.ValueChanged += (s, e) => {
+                if (lockAspect.Checked && !isUpdating) {
+                    isUpdating = true;
+                    heightInput.Value = Math.Max(1, Math.Min(8192, (int)Math.Round(widthInput.Value / (decimal)aspectRatio)));
+                    isUpdating = false;
+                }
+            };
+
+            heightInput.ValueChanged += (s, e) => {
+                if (lockAspect.Checked && !isUpdating) {
+                    isUpdating = true;
+                    widthInput.Value = Math.Max(1, Math.Min(8192, (int)Math.Round(heightInput.Value * (decimal)aspectRatio)));
+                    isUpdating = false;
+                }
+            };
 
             this.Controls.Add(CreateLabel("Format", startY + spacing * 2));
             formatCombo = new ComboBox();

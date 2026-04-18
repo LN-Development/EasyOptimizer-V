@@ -233,6 +233,18 @@ namespace EasyOptimizerV
             btnMigrate.Cursor = Cursors.Hand;
             btnMigrate.Click += (s, e) => MigrateDuplicates_Click();
 
+            Button btnSmartOpt = new Button();
+            btnSmartOpt.Text = "Smart Optimize ✨";
+            btnSmartOpt.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            btnSmartOpt.BackColor = Color.FromArgb(154, 73, 222); // Purple
+            btnSmartOpt.ForeColor = Color.White;
+            btnSmartOpt.FlatStyle = FlatStyle.Flat;
+            btnSmartOpt.FlatAppearance.BorderSize = 0;
+            btnSmartOpt.Height = 36;
+            btnSmartOpt.Margin = new Padding(0, 4, 0, 4);
+            btnSmartOpt.Cursor = Cursors.Hand;
+            btnSmartOpt.Click += (s, e) => SmartOptimize_Click();
+
             // CONTENT AREA (Row 1)
             TableLayoutPanel contentLayout = new TableLayoutPanel();
             contentLayout.Dock = DockStyle.Fill;
@@ -278,12 +290,12 @@ namespace EasyOptimizerV
             sidebar.Controls.Add(btnClear);
 
             AddSidebarLabel("DUPLICATE ANALYSIS");
-            btnNameDup.Width = 188;
-            btnHexDup.Width = 188;
             btnMigrate.Width = 188;
+            btnSmartOpt.Width = 188;
             sidebar.Controls.Add(btnNameDup);
             sidebar.Controls.Add(btnHexDup);
             sidebar.Controls.Add(btnMigrate);
+            sidebar.Controls.Add(btnSmartOpt);
 
             AddSidebarLabel("ENCODER ENGINE");
             encoderCombo = new ComboBox();
@@ -757,7 +769,15 @@ namespace EasyOptimizerV
                     {
                         using (Graphics g = Graphics.FromImage(resizedBmp)) {
                             g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                            g.DrawImage(fullBmp, 0, 0, newWidth, newHeight);
+                            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                            g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                            
+                            using (var wrapMode = new System.Drawing.Imaging.ImageAttributes())
+                            {
+                                wrapMode.SetWrapMode(System.Drawing.Drawing2D.WrapMode.TileFlipXY);
+                                g.DrawImage(fullBmp, new Rectangle(0, 0, newWidth, newHeight), 0, 0, fullBmp.Width, fullBmp.Height, GraphicsUnit.Pixel, wrapMode);
+                            }
                         }
 
                         // 4. Encode using selected engine
@@ -797,6 +817,205 @@ namespace EasyOptimizerV
                 MessageBox.Show($"Error resizing texture: {ex.Message}");
             }
         }
+        private void SmartOptimize_Click()
+        {
+            if (expandedYtds.Count == 0 && loadedYtds.Count > 0)
+            {
+                // If nothing expanded, pick the first one or ask? 
+                // Let's optimize the currently expanded or all? 
+                // User said "otimizar todo o arquivo", usually referring to the one they are looking at.
+                // If none expanded, we'll ask which one or just do all.
+            }
+
+            YtdFile? targetYtd = null;
+            if (expandedYtds.Count == 1) {
+                foreach (var y in expandedYtds) targetYtd = y;
+            }
+
+            if (targetYtd == null && loadedYtds.Count == 1) targetYtd = loadedYtds[0];
+
+            if (targetYtd == null)
+            {
+                MessageBox.Show("Please expand a YTD file folder to optimize it, or load only one file.", "Smart Optimize", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using (var dialog = new SmartOptimizeDialog())
+            {
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    PerformSmartOptimize(targetYtd, dialog.OptimizeBySize, dialog.TargetMiB, dialog.MaxResolution, dialog.PreferredFormat);
+                }
+            }
+        }
+
+        private float CalculateTotalMiB(YtdFile ytd)
+        {
+            if (ytd.TextureDict?.Textures?.data_items == null) return 0;
+            long totalBytes = 0;
+            foreach (var tex in ytd.TextureDict.Textures.data_items)
+            {
+                if (tex.Data?.FullData != null)
+                    totalBytes += tex.Data.FullData.Length;
+            }
+            return totalBytes / 1024f / 1024f;
+        }
+
+        private void PerformSmartOptimize(YtdFile ytd, bool bySize, float targetMiB, int maxRes, string prefFormat)
+        {
+            if (ytd.TextureDict?.Textures?.data_items == null) return;
+            var textures = new System.Collections.Generic.List<CodeWalker.GameFiles.Texture>(ytd.TextureDict.Textures.data_items);
+            
+            int optimizedCount = 0;
+            float startMiB = CalculateTotalMiB(ytd);
+
+            try
+            {
+                if (bySize)
+                {
+                    while (CalculateTotalMiB(ytd) > targetMiB)
+                    {
+                        // Find largest texture that is still reducible (min 16x16)
+                        textures.Sort((a, b) => (b.Data?.FullData?.Length ?? 0).CompareTo(a.Data?.FullData?.Length ?? 0));
+                        
+                        CodeWalker.GameFiles.Texture? toReduce = null;
+                        foreach (var t in textures)
+                        {
+                            if (t.Width > 16 && t.Height > 16) {
+                                toReduce = t;
+                                break;
+                            }
+                        }
+
+                        if (toReduce == null) break; // Nothing left to reduce
+
+                        int nw = Math.Max(16, toReduce.Width / 2);
+                        int nh = Math.Max(16, toReduce.Height / 2);
+                        
+                        // Use existing resize logic but suppress UI
+                        InternalResizeTexture(toReduce, ytd, nw, nh, prefFormat, -1);
+                        optimizedCount++;
+                    }
+                }
+                else
+                {
+                    foreach (var tex in textures)
+                    {
+                        if (tex.Width > maxRes || tex.Height > maxRes)
+                        {
+                            float ratio = (float)tex.Width / tex.Height;
+                            int nw, nh;
+                            if (ratio >= 1) {
+                                nw = maxRes;
+                                nh = (int)Math.Round(maxRes / ratio);
+                            } else {
+                                nh = maxRes;
+                                nw = (int)Math.Round(maxRes * ratio);
+                            }
+                            InternalResizeTexture(tex, ytd, nw, nh, prefFormat, -1);
+                            optimizedCount++;
+                        }
+                    }
+                }
+
+                float endMiB = CalculateTotalMiB(ytd);
+                RenderTextures();
+                MessageBox.Show($"Smart Optimization Complete!\nTextures affected: {optimizedCount}\nSize: {startMiB:F2} MiB -> {endMiB:F2} MiB", "Smart Optimize", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error during smart optimization: {ex.Message}", "Error");
+            }
+        }
+
+        private void InternalResizeTexture(CodeWalker.GameFiles.Texture tex, YtdFile parent, int newWidth, int newHeight, string formatSelection, int desiredMips)
+        {
+             // Copy of PerformTextureResize logic but without UI messages
+             // 1. Decode Texture
+             byte[] rawBgraPixels = null;
+             try {
+                 CompressionFormat? inputFormat = null;
+                 if (tex.Format == TextureFormat.D3DFMT_DXT1) inputFormat = CompressionFormat.Bc1;
+                 else if (tex.Format == TextureFormat.D3DFMT_DXT3) inputFormat = CompressionFormat.Bc2;
+                 else if (tex.Format == TextureFormat.D3DFMT_DXT5) inputFormat = CompressionFormat.Bc3;
+                 else if (tex.Format == TextureFormat.D3DFMT_ATI1) inputFormat = CompressionFormat.Bc4;
+                 else if (tex.Format == TextureFormat.D3DFMT_ATI2) inputFormat = CompressionFormat.Bc5;
+                 else if (tex.Format.ToString().Contains("BC7")) inputFormat = CompressionFormat.Bc7;
+
+                 if (inputFormat.HasValue && tex.Data?.FullData != null) {
+                     var decoder = new BcDecoder();
+                     var decodedColors = decoder.DecodeRaw(tex.Data.FullData, tex.Width, tex.Height, inputFormat.Value);
+                     if (decodedColors != null) {
+                         rawBgraPixels = new byte[decodedColors.Length * 4];
+                         for (int i = 0; i < decodedColors.Length; i++) {
+                             var color = decodedColors[i];
+                             int offset = i * 4;
+                             rawBgraPixels[offset] = color.b;
+                             rawBgraPixels[offset + 1] = color.g;
+                             rawBgraPixels[offset + 2] = color.r;
+                             rawBgraPixels[offset + 3] = color.a;
+                         }
+                     }
+                 }
+             } catch { }
+
+             if (rawBgraPixels == null) {
+                 byte[] cwPixels = DDSIO.GetPixels(tex, 0);
+                 if (cwPixels != null) rawBgraPixels = cwPixels;
+             }
+
+             if (rawBgraPixels == null) return;
+
+             // 2. Determine Target Format
+             TextureFormat targetFormat = Mapping.ParseFormat(formatSelection, tex.Format);
+
+             // 3. Create Resized Bitmap
+             using (Bitmap fullBmp = new Bitmap(tex.Width, tex.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+             {
+                 var bmpData = fullBmp.LockBits(new Rectangle(0, 0, tex.Width, tex.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly, fullBmp.PixelFormat);
+                 System.Runtime.InteropServices.Marshal.Copy(rawBgraPixels, 0, bmpData.Scan0, Math.Min(rawBgraPixels.Length, bmpData.Stride * tex.Height));
+                 fullBmp.UnlockBits(bmpData);
+
+                 using (Bitmap resizedBmp = new Bitmap(newWidth, newHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                 {
+                     using (Graphics g = Graphics.FromImage(resizedBmp)) {
+                         g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                         g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                         g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                         
+                         using (var wrapMode = new System.Drawing.Imaging.ImageAttributes())
+                         {
+                             wrapMode.SetWrapMode(System.Drawing.Drawing2D.WrapMode.TileFlipXY);
+                             g.DrawImage(fullBmp, new Rectangle(0, 0, newWidth, newHeight), 0, 0, fullBmp.Width, fullBmp.Height, GraphicsUnit.Pixel, wrapMode);
+                         }
+                     }
+
+                     int mipsGenerated = 0;
+                     int mipLimit = desiredMips == -2 ? tex.Levels : (desiredMips == -1 ? 99 : (desiredMips == 0 ? 1 : desiredMips));
+                     
+                     var encoder = EncoderManager.GetEncoder(selectedEngine);
+                     byte[] fullData = encoder.Encode(resizedBmp, targetFormat, mipLimit, out mipsGenerated);
+
+                     tex.Width = (ushort)newWidth;
+                     tex.Height = (ushort)newHeight;
+                     tex.Levels = (byte)mipsGenerated;
+                     tex.Format = targetFormat;
+                     if (tex.Data == null) tex.Data = new TextureData();
+                     tex.Data.FullData = fullData;
+
+                     if (Mapping.IsCompressed(targetFormat)) {
+                         int blocksWide = Math.Max(1, (newWidth + 3) / 4);
+                         int blockSize = (targetFormat == TextureFormat.D3DFMT_DXT1 || targetFormat == TextureFormat.D3DFMT_ATI1) ? 8 : 16;
+                         tex.Stride = (ushort)(blocksWide * blockSize);
+                     } else {
+                         int bpp = (targetFormat == TextureFormat.D3DFMT_A1R5G5B5) ? 2 : ((targetFormat == TextureFormat.D3DFMT_A8) ? 1 : 4);
+                         tex.Stride = (ushort)(newWidth * bpp);
+                     }
+                 }
+             }
+        }
+
         private void PerformDeDuplicationAnalysis(bool byName, bool byHex)
         {
             if (loadedYtds.Count == 0) return;
