@@ -24,19 +24,24 @@
 
 AppState g_app = {0};
 
-#define ID_SIDEBAR_ADDYTD   1001
-#define ID_SIDEBAR_SAVEALL  1002
-#define ID_SIDEBAR_CLEARALL 1003
-#define ID_SIDEBAR_FINDDUP  1004
-#define ID_SIDEBAR_OPTIMIZE 1005
+#define ID_SIDEBAR_ADDYTD     1001
+#define ID_SIDEBAR_SAVEALL    1002
+#define ID_SIDEBAR_CLEARALL   1003
+#define ID_SIDEBAR_DUP_NAMES  1004
+#define ID_SIDEBAR_OPTIMIZE   1005
 #define ID_SIDEBAR_FASTRECOMP 1006
 #define ID_SIDEBAR_TOGGLE_ENC 1007
-#define ID_SIDEBAR_ADDFOLDER 1008
+#define ID_SIDEBAR_ADDFOLDER  1008
 #define ID_SAVE_REPLACE_ORIGINALS 4001
 #define ID_SAVE_TO_FOLDER         4002
 #define ID_SAVE_PROJECT_CACHE     4003
-#define ID_SIDEBAR_LANGUAGE       1009
-#define ID_SIDEBAR_SORT           1011
+#define ID_SIDEBAR_LANGUAGE   1009
+#define ID_SIDEBAR_SORT       1011
+#define ID_SIDEBAR_DUP_HEX    1012
+#define ID_SIDEBAR_MIGRATE    1013
+
+#define IDC_MIG_CRITERION 3031
+#define IDC_MIG_STRATEGY  3032
 
 #define IDC_RES_MAXW 3011
 #define IDC_RES_MAXH 3012
@@ -90,7 +95,8 @@ static void open_file_dialog(HWND parent);
 static void open_folder_dialog(HWND parent);
 static void save_all(void);
 static void save_project_cache(void);
-static void do_find_duplicates(void);
+static void do_find_duplicates(DupCriterion criterion);
+static void do_migrate_duplicates(void);
 static void do_smart_optimize(void);
 static void paint_content(HWND hwnd, HDC hdc);
 static void paint_sidebar(HWND hwnd, HDC hdc);
@@ -119,7 +125,9 @@ static SidebarButton g_sidebar_btns[] = {
     {{0}, ID_SIDEBAR_ADDFOLDER,  L"Add Folder",     false},
     {{0}, ID_SIDEBAR_SAVEALL,    L"Save All",       false},
     {{0}, ID_SIDEBAR_CLEARALL,   L"Clear All",      false},
-    {{0}, ID_SIDEBAR_FINDDUP,    L"Find Duplicates",false},
+    {{0}, ID_SIDEBAR_DUP_NAMES,  L"Detect Names",   false},
+    {{0}, ID_SIDEBAR_DUP_HEX,    L"Detect Hex",     false},
+    {{0}, ID_SIDEBAR_MIGRATE,    L"Migrate Dups",   false},
     {{0}, ID_SIDEBAR_OPTIMIZE,   L"Smart Optimize", false},
     {{0}, ID_SIDEBAR_FASTRECOMP, L"Fast Recompress",false},
     {{0}, ID_SIDEBAR_TOGGLE_ENC, L"Encoder: CPU",   false},
@@ -255,10 +263,12 @@ static void update_sidebar_labels(void) {
     g_sidebar_btns[1].text = trw9(L"Add Folder", L"Adicionar pasta", L"Añadir carpeta", L"Добавить папку", L"Klasör ekle", L"添加文件夹", L"फ़ोल्डर जोड़ें", L"フォルダー追加", L"إضافة مجلد");
     g_sidebar_btns[2].text = trw9(L"Save All", L"Salvar tudo", L"Guardar todo", L"Сохранить все", L"Tümünü kaydet", L"全部保存", L"सभी सहेजें", L"すべて保存", L"حفظ الكل");
     g_sidebar_btns[3].text = trw9(L"Clear All", L"Limpar tudo", L"Limpiar todo", L"Очистить все", L"Tümünü temizle", L"全部清除", L"सभी साफ़ करें", L"すべてクリア", L"مسح الكل");
-    g_sidebar_btns[4].text = trw9(L"Find Duplicates", L"Buscar duplicadas", L"Buscar duplicados", L"Найти дубликаты", L"Yinelenenleri bul", L"查找重复项", L"डुप्लिकेट खोजें", L"重複を検索", L"البحث عن التكرارات");
-    g_sidebar_btns[5].text = trw9(L"Smart Optimize", L"Otimização inteligente", L"Optimización inteligente", L"Умная оптимизация", L"Akıllı optimize", L"智能优化", L"स्मार्ट अनुकूलन", L"スマート最適化", L"تحسين ذكي");
-    g_sidebar_btns[6].text = trw9(L"Fast Recompress", L"Recompressão rápida", L"Recompresión rápida", L"Быстрое сжатие", L"Hızlı sıkıştır", L"快速重新压缩", L"तेज़ पुनःसंपीड़न", L"高速再圧縮", L"إعادة ضغط سريعة");
-    g_sidebar_btns[7].text = g_app.use_gpu_encoding
+    g_sidebar_btns[4].text = trw9(L"Detect Names", L"Detectar nomes", L"Detectar nombres", L"Найти по имени", L"İsme göre bul", L"按名称查找", L"नाम से खोजें", L"名前で検出", L"كشف بالاسم");
+    g_sidebar_btns[5].text = trw9(L"Detect Hex", L"Detectar hash", L"Detectar hash", L"Найти по хэшу", L"Hash'a göre bul", L"按哈希查找", L"हैश से खोजें", L"ハッシュで検出", L"كشف بالهاش");
+    g_sidebar_btns[6].text = trw9(L"Migrate Dups", L"Migrar duplicadas", L"Migrar duplicados", L"Перенести дубликаты", L"Yinelenenleri taşı", L"迁移重复项", L"डुप्लिकेट स्थानांतरण", L"重複を移行", L"نقل التكرارات");
+    g_sidebar_btns[7].text = trw9(L"Smart Optimize", L"Otimização inteligente", L"Optimización inteligente", L"Умная оптимизация", L"Akıllı optimize", L"智能优化", L"स्मार्ट अनुकूलन", L"スマート最適化", L"تحسين ذكي");
+    g_sidebar_btns[8].text = trw9(L"Fast Recompress", L"Recompressão rápida", L"Recompresión rápida", L"Быстрое сжатие", L"Hızlı sıkıştır", L"快速重新压缩", L"तेज़ पुनःसंपीड़न", L"高速再圧縮", L"إعادة ضغط سريعة");
+    g_sidebar_btns[9].text = g_app.use_gpu_encoding
         ? trw(L"Encoder: GPU", L"Encoder: GPU", L"Codificador: GPU", L"Кодировщик: GPU")
         : trw(L"Encoder: CPU", L"Encoder: CPU", L"Codificador: CPU", L"Кодировщик: CPU");
     if (g_language == UI_LANG_BENGALI) {
@@ -280,13 +290,13 @@ static void update_sidebar_labels(void) {
         g_sidebar_btns[0].text = L"Aggiungi file"; g_sidebar_btns[1].text = L"Aggiungi cartella";
         g_sidebar_btns[2].text = L"Salva tutto"; g_sidebar_btns[3].text = L"Cancella tutto";
     }
-    g_sidebar_btns[8].text = language_button_text();
+    g_sidebar_btns[10].text = language_button_text();
     switch (g_sort_mode) {
-        case SORT_BY_TYPE: g_sidebar_btns[9].text = trw8(L"Sort: Type", L"Ordenar: Tipo", L"Ordenar: Tipo", L"Сорт.: Тип", L"Sırala: Tür", L"排序: 类型", L"क्रम: प्रकार", L"並べ替え: 種類"); break;
-        case SORT_BY_SIZE: g_sidebar_btns[9].text = trw8(L"Sort: Size", L"Ordenar: Tamanho", L"Ordenar: Tamaño", L"Сорт.: Размер", L"Sırala: Boyut", L"排序: 大小", L"क्रम: आकार", L"並べ替え: サイズ"); break;
-        case SORT_BY_TEXTURE_COUNT: g_sidebar_btns[9].text = trw8(L"Sort: Textures", L"Ordenar: Texturas", L"Ordenar: Texturas", L"Сорт.: Текстуры", L"Sırala: Dokular", L"排序: 纹理数", L"क्रम: टेक्सचर", L"並べ替え: テクスチャ"); break;
-        case SORT_BY_MODIFIED: g_sidebar_btns[9].text = trw8(L"Sort: Modified", L"Ordenar: Modificados", L"Ordenar: Modificados", L"Сорт.: Изменены", L"Sırala: Değişen", L"排序: 已修改", L"क्रम: संशोधित", L"並べ替え: 更新"); break;
-        default: g_sidebar_btns[9].text = trw8(L"Sort: Name", L"Ordenar: Nome", L"Ordenar: Nombre", L"Сорт.: Имя", L"Sırala: Ad", L"排序: 名称", L"क्रम: नाम", L"並べ替え: 名前"); break;
+        case SORT_BY_TYPE: g_sidebar_btns[11].text = trw8(L"Sort: Type", L"Ordenar: Tipo", L"Ordenar: Tipo", L"Сорт.: Тип", L"Sırala: Tür", L"排序: 类型", L"क्रम: प्रकार", L"並べ替え: 種類"); break;
+        case SORT_BY_SIZE: g_sidebar_btns[11].text = trw8(L"Sort: Size", L"Ordenar: Tamanho", L"Ordenar: Tamaño", L"Сорт.: Размер", L"Sırala: Boyut", L"排序: 大小", L"क्रम: आकार", L"並べ替え: サイズ"); break;
+        case SORT_BY_TEXTURE_COUNT: g_sidebar_btns[11].text = trw8(L"Sort: Textures", L"Ordenar: Texturas", L"Ordenar: Texturas", L"Сорт.: Текстуры", L"Sırala: Dokular", L"排序: 纹理数", L"क्रम: टेक्सचर", L"並べ替え: テクスチャ"); break;
+        case SORT_BY_MODIFIED: g_sidebar_btns[11].text = trw8(L"Sort: Modified", L"Ordenar: Modificados", L"Ordenar: Modificados", L"Сорт.: Изменены", L"Sırala: Değişen", L"排序: 已修改", L"क्रम: संशोधित", L"並べ替え: 更新"); break;
+        default: g_sidebar_btns[11].text = trw8(L"Sort: Name", L"Ordenar: Nome", L"Ordenar: Nombre", L"Сорт.: Имя", L"Sırala: Ad", L"排序: 名称", L"क्रम: नाम", L"並べ替え: 名前"); break;
     }
 }
 
@@ -757,33 +767,29 @@ static void save_all(void) {
 
 /* ── Find duplicates ───────────────────────────────────────────────── */
 
-static void do_find_duplicates(void) {
+static void do_find_duplicates(DupCriterion criterion) {
     if (g_app.ytd_count == 0) {
         gui_update_status("No files loaded");
         return;
     }
 
-    int choice = MessageBoxW(g_app.hwnd_main,
-        trw(L"How do you want to find duplicates?\n\nYES = By Name\nNO = By Hash",
-            L"Como deseja buscar duplicadas?\n\nSIM = Por nome\nNÃO = Por hash",
-            L"¿Cómo desea buscar duplicados?\n\nSÍ = Por nombre\nNO = Por hash",
-            L"Как искать дубликаты?\n\nДА = По имени\nНЕТ = По хэшу"),
-        trw(L"Find Duplicates", L"Buscar duplicadas", L"Buscar duplicados", L"Найти дубликаты"),
-        MB_YESNOCANCEL | MB_ICONQUESTION);
-    if (choice == IDCANCEL) return;
-
-    bool by_hash = (choice == IDNO);
-    LOG("do_find_duplicates: scanning %d ytds (by_hash=%d)", g_app.ytd_count, by_hash);
+    LOG("do_find_duplicates: scanning %d ytds (criterion=%d)", g_app.ytd_count, (int)criterion);
     int group_count = 0;
-    DupGroup *groups = optimizer_find_duplicates(g_app.ytds, g_app.ytd_count, &group_count, by_hash);
+    DupGroup *groups = optimizer_find_duplicates(g_app.ytds, g_app.ytd_count, &group_count, criterion);
+
+    const wchar_t *method =
+        (criterion == DUP_BY_HASH) ? L"Data Hash" :
+        (criterion == DUP_BY_NAME_AND_HASH) ? L"Name + Hash" : L"Texture Name";
+    const wchar_t *title =
+        (criterion == DUP_BY_HASH) ? L"Detect Hex" :
+        (criterion == DUP_BY_NAME_AND_HASH) ? L"Detect Names+Hex" : L"Detect Names";
 
     if (group_count == 0) {
-        gui_update_status("No duplicates found");
+        gui_update_status("No duplicates found (%ls)", method);
         MessageBoxW(g_app.hwnd_main,
             trw(L"No duplicate textures were found.", L"Nenhuma textura duplicada foi encontrada.",
                 L"No se encontraron texturas duplicadas.", L"Дубликаты текстур не найдены."),
-            trw(L"Find Duplicates", L"Buscar duplicadas", L"Buscar duplicados", L"Найти дубликаты"),
-            MB_OK | MB_ICONINFORMATION);
+            title, MB_OK | MB_ICONINFORMATION);
     } else {
         int total_dups = 0;
         size_t wasted = 0;
@@ -801,12 +807,155 @@ static void do_find_duplicates(void) {
             L"%d redundant textures\n"
             L"Wasted space: %.2f MiB\n\n"
             L"Method: %s",
-            group_count, total_dups, wasted_mib,
-            by_hash ? L"Data Hash" : L"Texture Name");
-        MessageBoxW(g_app.hwnd_main, msg, L"Find Duplicates", MB_OK | MB_ICONINFORMATION);
-        gui_update_status("Found %d dup groups (%d redundant, %.2f MiB wasted)", group_count, total_dups, wasted_mib);
+            group_count, total_dups, wasted_mib, method);
+        MessageBoxW(g_app.hwnd_main, msg, title, MB_OK | MB_ICONINFORMATION);
+        gui_update_status("Found %d dup groups (%d redundant, %.2f MiB wasted, %ls)",
+            group_count, total_dups, wasted_mib, method);
     }
     optimizer_free_groups(groups, group_count);
+}
+
+/* ── Migrate Duplicates Dialog ─────────────────────────────────────── */
+
+typedef struct {
+    DupCriterion criterion;
+    MigrateStrategy strategy;
+} MigrateParams;
+
+static INT_PTR CALLBACK MigrateDlgProc(HWND hDlg, UINT msg, WPARAM wp, LPARAM lp) {
+    MigrateParams *params = (MigrateParams *)GetWindowLongPtrW(hDlg, DWLP_USER);
+    switch (msg) {
+    case WM_INITDIALOG: {
+        SetWindowLongPtrW(hDlg, DWLP_USER, lp);
+        params = (MigrateParams *)lp;
+        HWND hC = GetDlgItem(hDlg, IDC_MIG_CRITERION);
+        SendMessageW(hC, CB_ADDSTRING, 0, (LPARAM)L"By Name");
+        SendMessageW(hC, CB_ADDSTRING, 0, (LPARAM)L"By Hex (data)");
+        SendMessageW(hC, CB_ADDSTRING, 0, (LPARAM)L"By Name + Hex");
+        SendMessageW(hC, CB_SETCURSEL, (WPARAM)params->criterion, 0);
+
+        HWND hS = GetDlgItem(hDlg, IDC_MIG_STRATEGY);
+        SendMessageW(hS, CB_ADDSTRING, 0, (LPARAM)L"Keep originals only");
+        SendMessageW(hS, CB_ADDSTRING, 0, (LPARAM)L"Save mixed (both)");
+        SendMessageW(hS, CB_ADDSTRING, 0, (LPARAM)L"Remove duplicates");
+        SendMessageW(hS, CB_SETCURSEL, (WPARAM)params->strategy, 0);
+        return TRUE;
+    }
+    case WM_COMMAND:
+        if (LOWORD(wp) == IDOK) {
+            int c = (int)SendDlgItemMessageW(hDlg, IDC_MIG_CRITERION, CB_GETCURSEL, 0, 0);
+            int s = (int)SendDlgItemMessageW(hDlg, IDC_MIG_STRATEGY, CB_GETCURSEL, 0, 0);
+            if (c < 0) c = 0;
+            if (s < 0) s = 0;
+            params->criterion = (DupCriterion)c;
+            params->strategy = (MigrateStrategy)s;
+            EndDialog(hDlg, IDOK);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDCANCEL) { EndDialog(hDlg, IDCANCEL); return TRUE; }
+        break;
+    case WM_CLOSE: EndDialog(hDlg, IDCANCEL); return TRUE;
+    }
+    return FALSE;
+}
+
+static LPDLGTEMPLATE build_migrate_template(void) {
+    uint8_t *buf = (uint8_t *)calloc(1, 4096);
+    uint8_t *p = buf;
+
+    DLGTEMPLATE *dt = (DLGTEMPLATE *)p;
+    dt->style = DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE;
+    dt->dwExtendedStyle = 0;
+    dt->cdit = 6;
+    dt->x = 0; dt->y = 0; dt->cx = 220; dt->cy = 110;
+    p += sizeof(DLGTEMPLATE);
+    *(WORD *)p = 0; p += 2;
+    *(WORD *)p = 0; p += 2;
+    const wchar_t *title = L"Migrate Duplicates";
+    size_t tlen = (wcslen(title) + 1) * 2;
+    memcpy(p, title, tlen); p += tlen;
+    p = (uint8_t *)(((uintptr_t)p + 3) & ~3);
+
+    #define ADD_ITEM(style_, x_, y_, cx_, cy_, id_, cls_atom, text_) do { \
+        p = (uint8_t *)(((uintptr_t)p + 3) & ~3); \
+        DLGITEMTEMPLATE *it = (DLGITEMTEMPLATE *)p; \
+        it->style = (style_) | WS_CHILD | WS_VISIBLE; \
+        it->dwExtendedStyle = 0; \
+        it->x = x_; it->y = y_; it->cx = cx_; it->cy = cy_; \
+        it->id = id_; \
+        p += sizeof(DLGITEMTEMPLATE); \
+        *(WORD *)p = 0xFFFF; p += 2; \
+        *(WORD *)p = cls_atom; p += 2; \
+        size_t slen = (wcslen(text_) + 1) * 2; \
+        memcpy(p, text_, slen); p += slen; \
+        *(WORD *)p = 0; p += 2; \
+    } while(0)
+
+    ADD_ITEM(SS_LEFT, 10, 12, 70, 12, (WORD)-1, 0x0082, L"Criterion:");
+    ADD_ITEM(CBS_DROPDOWNLIST | WS_TABSTOP, 85, 10, 125, 100, IDC_MIG_CRITERION, 0x0085, L"");
+    ADD_ITEM(SS_LEFT, 10, 42, 70, 12, (WORD)-1, 0x0082, L"Strategy:");
+    ADD_ITEM(CBS_DROPDOWNLIST | WS_TABSTOP, 85, 40, 125, 100, IDC_MIG_STRATEGY, 0x0085, L"");
+    ADD_ITEM(BS_DEFPUSHBUTTON | WS_TABSTOP, 60, 82, 50, 16, IDOK,     0x0080, L"Migrate");
+    ADD_ITEM(BS_PUSHBUTTON | WS_TABSTOP,    120, 82, 50, 16, IDCANCEL, 0x0080, L"Cancel");
+
+    #undef ADD_ITEM
+    return (LPDLGTEMPLATE)buf;
+}
+
+static void do_migrate_duplicates(void) {
+    if (g_app.ytd_count == 0) {
+        gui_update_status("No files loaded");
+        return;
+    }
+
+    MigrateParams params = {DUP_BY_HASH, MIGRATE_REMOVE_DUPS};
+    LPDLGTEMPLATE tpl = build_migrate_template();
+    INT_PTR result = DialogBoxIndirectParamW(GetModuleHandleW(NULL), tpl,
+        g_app.hwnd_main, MigrateDlgProc, (LPARAM)&params);
+    free(tpl);
+    if (result != IDOK) return;
+
+    int dup_groups = 0, moved = 0, consolidated = 0;
+    int created = optimizer_migrate_duplicates(g_app.ytds, &g_app.ytd_count, MAX_LOADED_YTDS,
+        params.criterion, params.strategy,
+        &dup_groups, &moved, &consolidated);
+    (void)created;
+
+    const wchar_t *strat_name =
+        (params.strategy == MIGRATE_KEEP_ORIGINAL) ? L"Keep originals only" :
+        (params.strategy == MIGRATE_MIXED) ? L"Save mixed" : L"Remove duplicates";
+    const wchar_t *crit_name =
+        (params.criterion == DUP_BY_HASH) ? L"Hex" :
+        (params.criterion == DUP_BY_NAME_AND_HASH) ? L"Name + Hex" : L"Name";
+
+    if (dup_groups == 0) {
+        MessageBoxW(g_app.hwnd_main,
+            trw(L"No duplicates found to migrate.", L"Nenhuma duplicata encontrada para migrar.",
+                L"No se encontraron duplicados para migrar.", L"Дубликаты для переноса не найдены."),
+            L"Migrate Duplicates", MB_OK | MB_ICONINFORMATION);
+        gui_update_status("Migrate: no duplicates (%ls / %ls)", crit_name, strat_name);
+    } else {
+        wchar_t msg[512];
+        _snwprintf(msg, 512,
+            L"Migration complete.\n\n"
+            L"Criterion: %s\n"
+            L"Strategy: %s\n"
+            L"Duplicate groups: %d\n"
+            L"Textures affected: %d\n"
+            L"Consolidated YTDs created: %d\n\n"
+            L"%s",
+            crit_name, strat_name, dup_groups, moved, consolidated,
+            consolidated > 0
+                ? L"Use 'Save All' to persist the new consolidated_textures_*.ytd files."
+                : L"Originals are flagged as modified; use 'Save All' to persist.");
+        MessageBoxW(g_app.hwnd_main, msg, L"Migrate Duplicates", MB_OK | MB_ICONINFORMATION);
+        gui_update_status("Migrate: %d groups, %d moved, %d consolidated (%ls / %ls)",
+            dup_groups, moved, consolidated, crit_name, strat_name);
+    }
+
+    apply_archive_sort();
+    InvalidateRect(g_app.hwnd_content, NULL, TRUE);
+    InvalidateRect(g_app.hwnd_sidebar, NULL, TRUE);
 }
 
 /* ── Smart Optimize Dialog ─────────────────────────────────────────── */
@@ -1801,7 +1950,9 @@ static LRESULT CALLBACK SidebarWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
                         InvalidateRect(g_app.hwnd_content, NULL, TRUE);
                         InvalidateRect(hwnd, NULL, TRUE);
                         break;
-                    case ID_SIDEBAR_FINDDUP:  do_find_duplicates(); break;
+                    case ID_SIDEBAR_DUP_NAMES: do_find_duplicates(DUP_BY_NAME); break;
+                    case ID_SIDEBAR_DUP_HEX:   do_find_duplicates(DUP_BY_HASH); break;
+                    case ID_SIDEBAR_MIGRATE:   do_migrate_duplicates(); break;
                     case ID_SIDEBAR_OPTIMIZE: do_smart_optimize(); break;
                     case ID_SIDEBAR_FASTRECOMP: do_fast_recompress(); break;
                     case ID_SIDEBAR_ADDFOLDER:  open_folder_dialog(g_app.hwnd_main); break;

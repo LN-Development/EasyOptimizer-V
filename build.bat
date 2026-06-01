@@ -3,7 +3,36 @@ setlocal
 
 where cl >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [ERROR] cl.exe not found. Run this from a Visual Studio Developer Command Prompt.
+    echo [INFO] cl.exe not found. Attempting to find Visual Studio...
+    set "VSCMD_START_DIR=%CD%"
+    
+    :: Try to find VS via vswhere
+    set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+    if exist "%VSWHERE%" (
+        for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
+            set "VS_PATH=%%i"
+        )
+    )
+    
+    if defined VS_PATH (
+        if exist "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" (
+            call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+        )
+    ) else (
+        :: Hardcoded fallback paths
+        if exist "D:\VS Studio\VC\Auxiliary\Build\vcvars64.bat" (
+            call "D:\VS Studio\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+        ) else if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" (
+            call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+        )
+    )
+)
+
+where cl >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [ERROR] cl.exe not found even after trying to load vcvars64.bat.
+    echo Please install Visual Studio with C++ desktop development tools, or run this from a Developer Command Prompt.
+    pause
     exit /b 1
 )
 
@@ -37,7 +66,7 @@ echo [BUILD] Linking (with ISPC BC7 acceleration)...
 cl /nologo /Fe:build\EasyOptimizer-V.exe build\*.obj %ISPC_OBJS% res\app.res %LDFLAGS%
 
 if %errorlevel% equ 0 (
-    echo [OK] build\EasyOptimizer-V.exe
+    echo [OK] build\EasyOptimizer-V.exe compilado com sucesso!
 ) else (
     goto :fail
 )
@@ -46,7 +75,9 @@ goto :end
 
 :fail
 echo [FAIL] Build failed.
+pause
 exit /b 1
 
 :end
+pause
 endlocal

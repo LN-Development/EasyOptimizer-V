@@ -30,23 +30,43 @@ static void sha256_hex(const uint8_t *data, size_t len, char *out_hex) {
 
 /* ── Duplicate finder ──────────────────────────────────────────────── */
 
-DupGroup *optimizer_find_duplicates(YtdFile **ytds, int ytd_count, int *out_group_count, bool by_hash) {
+DupGroup *optimizer_find_duplicates(YtdFile **ytds, int ytd_count, int *out_group_count, DupCriterion criterion) {
     int total = 0;
     for (int y = 0; y < ytd_count; y++) total += ytds[y]->texture_count;
     if (total == 0) { *out_group_count = 0; return NULL; }
 
-    typedef struct { char key[65]; int ytd_idx; int tex_idx; } Item;
+    typedef struct { char key[97]; int ytd_idx; int tex_idx; } Item;
     Item *items = (Item *)calloc(total, sizeof(Item));
     int item_count = 0;
 
     for (int y = 0; y < ytd_count; y++) {
         for (int t = 0; t < ytds[y]->texture_count; t++) {
             TextureEntry *te = &ytds[y]->textures[t];
-            if (by_hash && te->data && te->data_size > 0) {
-                sha256_hex(te->data, te->data_size, items[item_count].key);
-            } else {
-                strncpy(items[item_count].key, te->name, 64);
-                _strlwr_s(items[item_count].key, 65);
+            char name_lc[65];
+            strncpy(name_lc, te->name, 64);
+            name_lc[64] = 0;
+            _strlwr_s(name_lc, 65);
+
+            char hash_hex[65] = {0};
+            bool have_hash = te->data && te->data_size > 0;
+            if (have_hash && (criterion == DUP_BY_HASH || criterion == DUP_BY_NAME_AND_HASH)) {
+                sha256_hex(te->data, te->data_size, hash_hex);
+            }
+
+            switch (criterion) {
+                case DUP_BY_HASH:
+                    if (!have_hash) continue;
+                    strncpy(items[item_count].key, hash_hex, 96);
+                    break;
+                case DUP_BY_NAME_AND_HASH:
+                    if (!have_hash) continue;
+                    _snprintf(items[item_count].key, 97, "%s|%s", name_lc, hash_hex);
+                    items[item_count].key[96] = 0;
+                    break;
+                case DUP_BY_NAME:
+                default:
+                    strncpy(items[item_count].key, name_lc, 96);
+                    break;
             }
             items[item_count].ytd_idx = y;
             items[item_count].tex_idx = t;
@@ -72,7 +92,7 @@ DupGroup *optimizer_find_duplicates(YtdFile **ytds, int ytd_count, int *out_grou
             }
         }
         if (!found) {
-            strncpy(groups[group_count].hash_key, items[i].key, 64);
+            strncpy(groups[group_count].hash_key, items[i].key, 96);
             groups[group_count].entries = (DupEntry *)malloc(sizeof(DupEntry));
             groups[group_count].entries[0].ytd_index = items[i].ytd_idx;
             groups[group_count].entries[0].tex_index = items[i].tex_idx;
@@ -169,4 +189,200 @@ int optimizer_smart_resize(YtdFile *ytd, int max_width, int max_height, TexForma
         ytd->modified = true;
 
     return resized;
+}
+
+/* ── Migrate duplicates ────────────────────────────────────────────── */
+
+static size_t archive_total_data_size(const YtdFile *a) {
+    size_t total = 0;
+    for (int i = 0; i < a->texture_count; i++)
+        total += a->textures[i].data_size;
+    return total;
+}
+
+static YtdFile *make_consolidated_ytd(const wchar_t *base_dir, int seq) {
+    YtdFile *out = (YtdFile *)calloc(1, sizeof(YtdFile));
+    if (!out) return NULL;
+    out->type = ARCHIVE_YTD;
+    out->expanded = true;
+    out->modified = true;
+    _snprintf(out->name, EO_MAX_NAME, "consolidated_textures_%d.ytd", seq);
+    out->name[EO_MAX_NAME - 1] = 0;
+    wchar_t wname[EO_MAX_NAME];
+    MultiByteToWideChar(CP_UTF8, 0, out->name, -1, wname, EO_MAX_NAME);
+    if (base_dir && base_dir[0]) {
+        _snwprintf(out->file_path, EO_MAX_PATH, L"%s\\%s", base_dir, wname);
+    } else {
+        wcsncpy(out->file_path, wname, EO_MAX_PATH - 1);
+    }
+    out->file_path[EO_MAX_PATH - 1] = 0;
+    out->textures = NULL;
+    out->texture_count = 0;
+    return out;
+}
+
+static bool consolidated_append(YtdFile *dst, const TextureEntry *src) {
+    TextureEntry *grow = (TextureEntry *)realloc(dst->textures,
+        (dst->texture_count + 1) * sizeof(TextureEntry));
+    if (!grow) return false;
+    dst->textures = grow;
+    TextureEntry *nt = &dst->textures[dst->texture_count];
+    memcpy(nt, src, sizeof(TextureEntry));
+    nt->wtd_meta = NULL;
+    if (src->data && src->data_size > 0) {
+        nt->data = (uint8_t *)malloc(src->data_size);
+        if (!nt->data) return false;
+        memcpy(nt->data, src->data, src->data_size);
+    } else {
+        nt->data = NULL;
+        nt->data_size = 0;
+    }
+    dst->texture_count++;
+    return true;
+}
+
+static void archive_remove_texture(YtdFile *a, int idx) {
+    if (idx < 0 || idx >= a->texture_count) return;
+    free(a->textures[idx].data);
+    free(a->textures[idx].wtd_meta);
+    for (int i = idx; i < a->texture_count - 1; i++)
+        a->textures[i] = a->textures[i + 1];
+    a->texture_count--;
+    a->modified = true;
+}
+
+int optimizer_migrate_duplicates(YtdFile **io_ytds, int *io_ytd_count, int max_ytds,
+                                 DupCriterion criterion, MigrateStrategy strategy,
+                                 int *out_dup_groups, int *out_textures_moved,
+                                 int *out_consolidated) {
+    if (out_dup_groups) *out_dup_groups = 0;
+    if (out_textures_moved) *out_textures_moved = 0;
+    if (out_consolidated) *out_consolidated = 0;
+    if (!io_ytds || !io_ytd_count || *io_ytd_count == 0) return 0;
+
+    int group_count = 0;
+    DupGroup *groups = optimizer_find_duplicates(io_ytds, *io_ytd_count, &group_count, criterion);
+    if (out_dup_groups) *out_dup_groups = group_count;
+    if (group_count == 0) { optimizer_free_groups(groups, group_count); return 0; }
+
+    /* Collect (ytd_idx, tex_idx) pairs to remove later, deduped. */
+    typedef struct { int y; int t; } TexRef;
+    int rem_cap = 64, rem_n = 0;
+    TexRef *rem = (TexRef *)malloc(rem_cap * sizeof(TexRef));
+
+    /* Base dir for consolidated YTDs: dir of first existing YTD. */
+    wchar_t base_dir[EO_MAX_PATH] = {0};
+    for (int i = 0; i < *io_ytd_count; i++) {
+        if (io_ytds[i]->file_path[0]) {
+            wcsncpy(base_dir, io_ytds[i]->file_path, EO_MAX_PATH - 1);
+            base_dir[EO_MAX_PATH - 1] = 0;
+            wchar_t *slash = wcsrchr(base_dir, L'\\');
+            if (!slash) slash = wcsrchr(base_dir, L'/');
+            if (slash) *slash = 0;
+            else base_dir[0] = 0;
+            break;
+        }
+    }
+
+    YtdFile *cur_consol = NULL;
+    int consol_seq = 1;
+    int consol_created = 0;
+    int moved = 0;
+
+    int orig_count_before = *io_ytd_count;
+
+    for (int g = 0; g < group_count; g++) {
+        DupGroup *dg = &groups[g];
+        if (dg->count < 2) continue;
+
+        /* "master" = first entry */
+        DupEntry *master = &dg->entries[0];
+        TextureEntry *master_tex = &io_ytds[master->ytd_index]->textures[master->tex_index];
+
+        if (strategy == MIGRATE_KEEP_ORIGINAL) {
+            /* Remove every dup except master from originals. */
+            for (int e = 1; e < dg->count; e++) {
+                if (rem_n == rem_cap) { rem_cap *= 2; rem = (TexRef *)realloc(rem, rem_cap * sizeof(TexRef)); }
+                rem[rem_n].y = dg->entries[e].ytd_index;
+                rem[rem_n].t = dg->entries[e].tex_index;
+                rem_n++;
+                moved++;
+            }
+            continue;
+        }
+
+        /* MIXED and REMOVE_DUPS both produce consolidated entries. */
+        /* Which entries get copied: */
+        /*   MIXED: only master is copied; dups are dropped from originals. */
+        /*   REMOVE_DUPS: every distinct name in the group is copied; all originals dropped. */
+
+        if (strategy == MIGRATE_MIXED) {
+            /* Ensure room for master copy. */
+            if (!cur_consol || archive_total_data_size(cur_consol) + master_tex->data_size > MIGRATE_GREEN_LIMIT) {
+                if (*io_ytd_count >= max_ytds) break;
+                cur_consol = make_consolidated_ytd(base_dir, consol_seq++);
+                if (!cur_consol) break;
+                io_ytds[(*io_ytd_count)++] = cur_consol;
+                consol_created++;
+            }
+            consolidated_append(cur_consol, master_tex);
+            /* Drop dups (not master) from originals. */
+            for (int e = 1; e < dg->count; e++) {
+                if (rem_n == rem_cap) { rem_cap *= 2; rem = (TexRef *)realloc(rem, rem_cap * sizeof(TexRef)); }
+                rem[rem_n].y = dg->entries[e].ytd_index;
+                rem[rem_n].t = dg->entries[e].tex_index;
+                rem_n++;
+                moved++;
+            }
+        } else { /* MIGRATE_REMOVE_DUPS */
+            /* Collect distinct names. Each distinct name → one copy into consolidated. */
+            for (int e = 0; e < dg->count; e++) {
+                DupEntry *ent = &dg->entries[e];
+                TextureEntry *src = &io_ytds[ent->ytd_index]->textures[ent->tex_index];
+                bool name_seen = false;
+                for (int p = 0; p < e; p++) {
+                    TextureEntry *prev = &io_ytds[dg->entries[p].ytd_index]->textures[dg->entries[p].tex_index];
+                    if (_stricmp(prev->name, src->name) == 0) { name_seen = true; break; }
+                }
+                if (!name_seen) {
+                    if (!cur_consol || archive_total_data_size(cur_consol) + src->data_size > MIGRATE_GREEN_LIMIT) {
+                        if (*io_ytd_count >= max_ytds) goto done_groups;
+                        cur_consol = make_consolidated_ytd(base_dir, consol_seq++);
+                        if (!cur_consol) goto done_groups;
+                        io_ytds[(*io_ytd_count)++] = cur_consol;
+                        consol_created++;
+                    }
+                    consolidated_append(cur_consol, src);
+                }
+                if (rem_n == rem_cap) { rem_cap *= 2; rem = (TexRef *)realloc(rem, rem_cap * sizeof(TexRef)); }
+                rem[rem_n].y = ent->ytd_index;
+                rem[rem_n].t = ent->tex_index;
+                rem_n++;
+                moved++;
+            }
+        }
+    }
+done_groups:
+
+    /* Remove collected texture entries from originals. Sort descending so indices stay valid.
+     * We only touch ytds in [0, orig_count_before) — never the consolidated YTDs we just appended. */
+    for (int i = 0; i < rem_n - 1; i++) {
+        for (int j = i + 1; j < rem_n; j++) {
+            bool swap = false;
+            if (rem[j].y > rem[i].y) swap = true;
+            else if (rem[j].y == rem[i].y && rem[j].t > rem[i].t) swap = true;
+            if (swap) { TexRef tmp = rem[i]; rem[i] = rem[j]; rem[j] = tmp; }
+        }
+    }
+    for (int i = 0; i < rem_n; i++) {
+        if (rem[i].y < orig_count_before)
+            archive_remove_texture(io_ytds[rem[i].y], rem[i].t);
+    }
+
+    free(rem);
+    optimizer_free_groups(groups, group_count);
+
+    if (out_textures_moved) *out_textures_moved = moved;
+    if (out_consolidated) *out_consolidated = consol_created;
+    return consol_created;
 }
