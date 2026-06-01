@@ -57,6 +57,7 @@ typedef struct {
     bool expanded;
     bool is_preview;      /* consolidated YTD shown as migration preview, not yet committed */
     bool keep_originals;  /* preview only: if set, commit keeps the source textures in originals */
+    bool from_rpf;         /* loaded from inside an RPF; unload only, never written back to the container */
     
     uint32_t sys_flags;
     uint32_t gfx_flags;

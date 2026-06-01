@@ -74,6 +74,20 @@ void gui_draw_ytd_card(HDC hdc, int x, int y, int w, YtdFile *ytd, bool hovered)
         SelectObject(hdc, theme_font_small_bold());
         DrawTextW(hdc, on ? L"Keeping" : L"Maintain", -1, &btn,
                   DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    } else if (ytd->from_rpf) {
+        RECT btn = {x + w - 116, y + 16, x + w - 44, y + 40};
+        HBRUSH bfill = CreateSolidBrush(RGB(120, 45, 45));
+        HPEN bpen = CreatePen(PS_SOLID, 1, RGB(210, 90, 90));
+        HPEN oldP = (HPEN)SelectObject(hdc, bpen);
+        HBRUSH oldB = (HBRUSH)SelectObject(hdc, bfill);
+        RoundRect(hdc, btn.left, btn.top, btn.right, btn.bottom, 6, 6);
+        SelectObject(hdc, oldP);
+        SelectObject(hdc, oldB);
+        DeleteObject(bpen);
+        DeleteObject(bfill);
+        SetTextColor(hdc, CLR_TEXT_PRIMARY);
+        SelectObject(hdc, theme_font_small_bold());
+        DrawTextW(hdc, L"Unload", -1, &btn, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
     /* Expand arrow */

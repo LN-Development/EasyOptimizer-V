@@ -39,6 +39,8 @@ if %errorlevel% neq 0 (
 if not exist "build" mkdir build
 if exist "nvtt30205.dll" copy /Y "nvtt30205.dll" "build\nvtt30205.dll" >nul
 if exist "vcomp140.dll" copy /Y "vcomp140.dll" "build\vcomp140.dll" >nul
+if exist "ng.dat" copy /Y "ng.dat" "build\ng.dat" >nul
+if exist "lut.dat" copy /Y "lut.dat" "build\lut.dat" >nul
 
 set COMMON=/nologo /O2 /W3 /MD /utf-8 /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS
 set CFLAGS=%COMMON% /I vendor\bc7enc_rdo
@@ -48,7 +50,7 @@ set LDFLAGS=/link /SUBSYSTEM:WINDOWS user32.lib gdi32.lib comctl32.lib comdlg32.
 
 set C_SOURCES=src\main.c src\theme.c src\hash.c src\ytd.c src\wtd.c src\dds.c src\texture.c src\image.c src\gui.c src\gui_cards.c src\ydr.c src\optimizer.c src\nvtt_c_wrapper.c
 
-set CXX_SOURCES=src\bc7enc_wrapper.cpp vendor\bc7enc_rdo\bc7enc.cpp vendor\bc7enc_rdo\bc7decomp.cpp vendor\bc7enc_rdo\bc7decomp_ref.cpp vendor\bc7enc_rdo\rgbcx.cpp vendor\bc7enc_rdo\rdo_bc_encoder.cpp vendor\bc7enc_rdo\ert.cpp vendor\bc7enc_rdo\utils.cpp vendor\bc7enc_rdo\lodepng.cpp
+set CXX_SOURCES=src\bc7enc_wrapper.cpp src\rpf_scan.cpp vendor\bc7enc_rdo\bc7enc.cpp vendor\bc7enc_rdo\bc7decomp.cpp vendor\bc7enc_rdo\bc7decomp_ref.cpp vendor\bc7enc_rdo\rgbcx.cpp vendor\bc7enc_rdo\rdo_bc_encoder.cpp vendor\bc7enc_rdo\ert.cpp vendor\bc7enc_rdo\utils.cpp vendor\bc7enc_rdo\lodepng.cpp
 
 set ISPC_OBJS=vendor\bc7enc_rdo\bc7e.obj vendor\bc7enc_rdo\bc7e_sse2.obj vendor\bc7enc_rdo\bc7e_sse4.obj vendor\bc7enc_rdo\bc7e_avx.obj vendor\bc7enc_rdo\bc7e_avx2.obj
 

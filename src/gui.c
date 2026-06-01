@@ -10,6 +10,7 @@
 #include "dds.h"
 #include "bc7enc_wrapper.h"
 #include "nvtt_c_wrapper.h"
+#include "rpf_scan.h"
 #include "log.h"
 #include <stdio.h>
 #include <stdarg.h>
@@ -113,9 +114,11 @@ static void show_texture_context_menu(HWND hwnd, int screen_x, int screen_y, int
 static bool do_texture_resize(int ytd_idx, int tex_idx, int new_w, int new_h, TexFormat fmt, int max_mips);
 static void do_fast_recompress(void);
 static void do_same_format_recompress(void);
+static void choose_recompress_mode(void);
 static void do_custom_resize(int ytd_idx, int tex_idx);
 static void do_texture_export_dds(int ytd_idx, int tex_idx);
 static void do_texture_remove(int ytd_idx, int tex_idx);
+static void unload_rpf_archive(int ytd_idx);
 static void select_language(void);
 static void apply_archive_sort(void);
 static bool select_import_types(HWND parent);
@@ -138,8 +141,8 @@ static SidebarButton g_sidebar_btns[] = {
     {{0}, ID_SIDEBAR_DETECT,     L"Detect Duplicates", false, true},
     {{0}, ID_SIDEBAR_MIGRATE,    L"Migrate Dups",      false, false},  /* shown only after detect */
     {{0}, ID_SIDEBAR_OPTIMIZE,   L"Smart Optimize", false, true},
-    {{0}, ID_SIDEBAR_FASTRECOMP, L"Fast Recompress",false, true},
-    {{0}, ID_SIDEBAR_SAMEFORMAT, L"Recompress Same Format", false, true},
+    {{0}, ID_SIDEBAR_FASTRECOMP, L"Recompress",     false, true},
+    {{0}, ID_SIDEBAR_SAMEFORMAT, L"",               false, false},
     {{0}, ID_SIDEBAR_TOGGLE_ENC, L"Encoder: CPU",   false, true},
     {{0}, ID_SIDEBAR_LANGUAGE,   L"Language: English", false, true},
     {{0}, ID_SIDEBAR_SORT,       L"Sort: Name", false, true},
@@ -240,7 +243,7 @@ static bool is_supported_archive_path(const wchar_t *path) {
     const wchar_t *ext = PathFindExtensionW(path);
     return _wcsicmp(ext, L".ytd") == 0 || _wcsicmp(ext, L".wtd") == 0 ||
            _wcsicmp(ext, L".ydr") == 0 || _wcsicmp(ext, L".yft") == 0 ||
-           _wcsicmp(ext, L".ydd") == 0;
+           _wcsicmp(ext, L".ydd") == 0 || _wcsicmp(ext, L".rpf") == 0;
 }
 
 static bool should_import_archive_path(const wchar_t *path) {
@@ -250,6 +253,7 @@ static bool should_import_archive_path(const wchar_t *path) {
     if (_wcsicmp(ext, L".ydd") == 0) return g_import_filter.ydd;
     if (_wcsicmp(ext, L".ydr") == 0) return g_import_filter.ydr;
     if (_wcsicmp(ext, L".wtd") == 0) return g_import_filter.wtd;
+    if (_wcsicmp(ext, L".rpf") == 0) return true;
     return false;
 }
 
@@ -316,6 +320,7 @@ static void update_sidebar_labels(void) {
     g_sidebar_btns[7].text = trw9(L"Fast Recompress", L"Recompressão rápida", L"Recompresión rápida", L"Быстрое сжатие", L"Hızlı sıkıştır", L"快速重新压缩", L"तेज़ पुनःसंपीड़न", L"高速再圧縮", L"إعادة ضغط سريعة");
     g_sidebar_btns[8].text = trw(L"Recompress Same Format", L"Recomprimir mesmo formato",
         L"Recomprimir mismo formato", L"Сжать в том же формате");
+    g_sidebar_btns[7].text = L"Recompress";
     g_sidebar_btns[9].text = g_app.use_gpu_encoding
         ? trw(L"Encoder: GPU", L"Encoder: GPU", L"Codificador: GPU", L"Кодировщик: GPU")
         : trw(L"Encoder: CPU", L"Encoder: CPU", L"Codificador: CPU", L"Кодировщик: CPU");
@@ -576,10 +581,11 @@ static void open_file_dialog(HWND parent) {
     }
 
     COMDLG_FILTERSPEC filters[] = {
-        {L"GTA texture files", L"*.ytd;*.wtd;*.ydr;*.yft;*.ydd"},
+        {L"GTA texture files", L"*.ytd;*.wtd;*.ydr;*.yft;*.ydd;*.rpf"},
         {L"YTD files", L"*.ytd"},
         {L"WTD files", L"*.wtd"},
         {L"Model files", L"*.ydr;*.yft;*.ydd"},
+        {L"RPF archives", L"*.rpf"},
         {L"All files", L"*.*"},
     };
     pfd->lpVtbl->SetFileTypes(pfd, ARRAYSIZE(filters), filters);
@@ -683,6 +689,65 @@ static void open_folder_dialog(HWND parent) {
 
 /* ── Add YTD ───────────────────────────────────────────────────────── */
 
+static YtdFile *load_archive_path(const wchar_t *path) {
+    const wchar_t *ext = PathFindExtensionW(path);
+    if (_wcsicmp(ext, L".wtd") == 0) return wtd_load(path);
+    if (_wcsicmp(ext, L".ydr") == 0 || _wcsicmp(ext, L".yft") == 0 ||
+        _wcsicmp(ext, L".ydd") == 0)
+        return ydr_load(path);
+    return ytd_load(path);
+}
+
+typedef struct {
+    const wchar_t *rpf_path;
+    int sequence;
+    int loaded;
+} RpfImportContext;
+
+static const wchar_t *embedded_file_name(const wchar_t *path) {
+    const wchar_t *slash = wcsrchr(path, L'/');
+    const wchar_t *backslash = wcsrchr(path, L'\\');
+    const wchar_t *last = slash > backslash ? slash : backslash;
+    return last ? last + 1 : path;
+}
+
+static bool import_rpf_entry(const wchar_t *entry_path, const uint8_t *data,
+                             size_t data_size, void *opaque) {
+    RpfImportContext *ctx = (RpfImportContext *)opaque;
+    if (g_app.ytd_count >= MAX_LOADED_YTDS || !should_import_archive_path(entry_path))
+        return false;
+
+    wchar_t temp_dir[MAX_PATH], temp_path[MAX_PATH];
+    if (!GetTempPathW(MAX_PATH, temp_dir)) return false;
+    _snwprintf(temp_path, MAX_PATH, L"%sEasyOptimizer-rpf-%lu-%d%s",
+        temp_dir, GetCurrentProcessId(), ctx->sequence++, PathFindExtensionW(entry_path));
+
+    FILE *f = _wfopen(temp_path, L"wb");
+    if (!f) return false;
+    bool written = fwrite(data, 1, data_size, f) == data_size;
+    fclose(f);
+    if (!written) {
+        DeleteFileW(temp_path);
+        return false;
+    }
+
+    YtdFile *archive = load_archive_path(temp_path);
+    DeleteFileW(temp_path);
+    if (!archive) return false;
+
+    const wchar_t *leaf = embedded_file_name(entry_path);
+    WideCharToMultiByte(CP_UTF8, 0, leaf, -1, archive->name, EO_MAX_NAME, NULL, NULL);
+    wcsncpy(archive->file_path, leaf, EO_MAX_PATH - 1);
+    archive->file_path[EO_MAX_PATH - 1] = 0;
+    archive->type = ARCHIVE_MODEL_READONLY;
+    archive->from_rpf = true;
+    archive->expanded = true;
+    g_app.ytds[g_app.ytd_count++] = archive;
+    ctx->loaded++;
+    LOG("RPF import: loaded embedded %ls from %ls", entry_path, ctx->rpf_path);
+    return true;
+}
+
 void gui_add_ytd(const wchar_t *path) {
     if (g_app.ytd_count >= MAX_LOADED_YTDS) return;
     if (!is_supported_archive_path(path)) {
@@ -691,18 +756,25 @@ void gui_add_ytd(const wchar_t *path) {
     }
     if (!should_import_archive_path(path)) return;
 
-    LOG("gui_add_ytd: adding file");
-
-    YtdFile *archive = NULL;
     const wchar_t *ext = wcsrchr(path, L'.');
-    if (ext && _wcsicmp(ext, L".wtd") == 0) {
-        archive = wtd_load(path);
-    } else if (ext && (_wcsicmp(ext, L".ydr") == 0 || _wcsicmp(ext, L".yft") == 0 || _wcsicmp(ext, L".ydd") == 0)) {
-        archive = ydr_load(path);
-    } else {
-        archive = ytd_load(path);
+    if (ext && _wcsicmp(ext, L".rpf") == 0) {
+        RpfImportContext context = {path, 0, 0};
+        char error[256] = {0};
+        int result = rpf_scan_file(path, import_rpf_entry, &context, error, sizeof(error));
+        if (result < 0) {
+            LOG_ERR("RPF scan failed: %s", error);
+            gui_update_status("RPF scan failed: %s", error);
+            return;
+        }
+        apply_archive_sort();
+        gui_update_status("RPF scan: %d texture archives loaded as read-only", context.loaded);
+        InvalidateRect(g_app.hwnd_content, NULL, TRUE);
+        InvalidateRect(g_app.hwnd_sidebar, NULL, TRUE);
+        return;
     }
 
+    LOG("gui_add_ytd: adding file");
+    YtdFile *archive = load_archive_path(path);
     if (!archive) {
         LOG_ERR("gui_add_ytd: failed to load file");
         gui_update_status("Failed to load file");
@@ -1581,6 +1653,46 @@ static void do_same_format_recompress(void) {
     InvalidateRect(g_app.hwnd_content, NULL, TRUE);
 }
 
+static void choose_recompress_mode(void) {
+    enum {
+        ID_RECOMPRESS_OPTIMIZE = 1,
+        ID_RECOMPRESS_SAME_FORMAT = 2
+    };
+    const TASKDIALOG_BUTTON buttons[] = {
+        {ID_RECOMPRESS_OPTIMIZE,
+            L"Optimize formats\nMay change texture formats to reduce size."},
+        {ID_RECOMPRESS_SAME_FORMAT,
+            L"Recompress same format\nPreserves formats and will probably not change size or performance."}
+    };
+    TASKDIALOGCONFIG dialog = {sizeof(dialog)};
+    int choice = IDCANCEL;
+
+    if (g_app.ytd_count == 0) {
+        gui_update_status("No files loaded");
+        return;
+    }
+
+    dialog.hwndParent = g_app.hwnd_main;
+    dialog.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION;
+    dialog.pszWindowTitle = L"Recompress";
+    dialog.pszMainInstruction = L"Choose how to recompress the loaded textures";
+    dialog.pszContent =
+        L"Optimize formats may change compatible texture formats and reduce file size.\n\n"
+        L"Recompress same format preserves format, resolution and mip count. "
+        L"It will probably not reduce memory usage or improve performance.";
+    dialog.cButtons = ARRAYSIZE(buttons);
+    dialog.pButtons = buttons;
+    dialog.nDefaultButton = ID_RECOMPRESS_OPTIMIZE;
+
+    if (FAILED(TaskDialogIndirect(&dialog, &choice, NULL, NULL)))
+        return;
+
+    if (choice == ID_RECOMPRESS_OPTIMIZE)
+        do_fast_recompress();
+    else if (choice == ID_RECOMPRESS_SAME_FORMAT)
+        do_same_format_recompress();
+}
+
 static bool hit_test_texture(int mx, int my, int *out_ytd, int *out_tex, int *out_cx, int *out_cy) {
     RECT crc;
     GetClientRect(g_app.hwnd_content, &crc);
@@ -1851,6 +1963,22 @@ static void do_texture_remove(int ytd_idx, int tex_idx) {
     InvalidateRect(g_app.hwnd_sidebar, NULL, TRUE);
 }
 
+static void unload_rpf_archive(int ytd_idx) {
+    if (ytd_idx < 0 || ytd_idx >= g_app.ytd_count || !g_app.ytds[ytd_idx]->from_rpf)
+        return;
+
+    char name[EO_MAX_NAME];
+    strncpy(name, g_app.ytds[ytd_idx]->name, EO_MAX_NAME);
+    name[EO_MAX_NAME - 1] = 0;
+    ytd_free(g_app.ytds[ytd_idx]);
+    for (int i = ytd_idx; i < g_app.ytd_count - 1; i++)
+        g_app.ytds[i] = g_app.ytds[i + 1];
+    g_app.ytd_count--;
+    gui_update_status("Unloaded '%s' from the application; original RPF was not changed", name);
+    InvalidateRect(g_app.hwnd_content, NULL, TRUE);
+    InvalidateRect(g_app.hwnd_sidebar, NULL, TRUE);
+}
+
 /* ── Content painting ──────────────────────────────────────────────── */
 
 static void paint_content(HWND hwnd, HDC hdc) {
@@ -2035,7 +2163,7 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         for (int i = 0; i < count; i++) {
             wchar_t path[MAX_PATH];
             DragQueryFileW(hDrop, i, path, MAX_PATH);
-            if (PathMatchSpecW(path, L"*.ytd;*.wtd;*.ydr;*.yft;*.ydd"))
+            if (PathMatchSpecW(path, L"*.ytd;*.wtd;*.ydr;*.yft;*.ydd;*.rpf"))
                 gui_add_ytd(path);
         }
         DragFinish(hDrop);
@@ -2164,6 +2292,13 @@ static LRESULT CALLBACK ContentWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
                         InvalidateRect(hwnd, NULL, TRUE);
                         return 0;
                     }
+                } else if (ytd->from_rpf) {
+                    int card_w = area_w - 16;
+                    int bl = 8 + card_w - 116, br2 = 8 + card_w - 44;
+                    if (mx >= bl && mx <= br2 && my >= y + 16 && my <= y + 40) {
+                        unload_rpf_archive(i);
+                        return 0;
+                    }
                 }
                 ytd->expanded = !ytd->expanded;
                 InvalidateRect(hwnd, NULL, TRUE);
@@ -2231,8 +2366,7 @@ static LRESULT CALLBACK SidebarWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
                     case ID_SIDEBAR_DETECT:  do_detect_duplicates(); break;
                     case ID_SIDEBAR_MIGRATE: do_migrate_duplicates(); break;
                     case ID_SIDEBAR_OPTIMIZE: do_smart_optimize(); break;
-                    case ID_SIDEBAR_FASTRECOMP: do_fast_recompress(); break;
-                    case ID_SIDEBAR_SAMEFORMAT: do_same_format_recompress(); break;
+                    case ID_SIDEBAR_FASTRECOMP: choose_recompress_mode(); break;
                     case ID_SIDEBAR_ADDFOLDER:  open_folder_dialog(g_app.hwnd_main); break;
                     case ID_SIDEBAR_TOGGLE_ENC:
                         g_app.use_gpu_encoding = !g_app.use_gpu_encoding;
