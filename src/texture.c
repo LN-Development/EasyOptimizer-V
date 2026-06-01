@@ -2,6 +2,7 @@
 #include "bc7enc_wrapper.h"
 #include "nvtt_c_wrapper.h"
 #include "gui.h"
+#include "log.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -208,35 +209,46 @@ static uint8_t *tex_encode_bc2(const uint8_t *rgba, int w, int h, size_t *out_si
     return result;
 }
 
+/* Log the effective encoder only when it changes, so batches don't spam. */
+static void log_encoder_used(const char *mode) {
+    static const char *last = NULL;
+    if (mode != last) {
+        LOG("encoder: using %s", mode);
+        last = mode;
+    }
+}
+
 uint8_t *tex_encode_bc(const uint8_t *rgba, int w, int h, TexFormat fmt, size_t *out_size) {
-    if (fmt == TEX_FMT_BC2) return tex_encode_bc2(rgba, w, h, out_size);
+    if (fmt == TEX_FMT_BC2) {
+        log_encoder_used("CPU (bc7enc ISPC)");
+        return tex_encode_bc2(rgba, w, h, out_size);
+    }
     // NVTT 2 CUDA compressor only supports BC1 and BC3, and requires multiples of 4.
     // For BC7 and other sizes, we must fallback to the fast CPU ISPC encoder to prevent crashes!
     if (g_app.use_gpu_encoding && (fmt == TEX_FMT_BC1 || fmt == TEX_FMT_BC3) && (w % 4 == 0) && (h % 4 == 0)) {
-        NvttFormat nvttf;
-        if (fmt == TEX_FMT_BC1) nvttf = NVTT_FORMAT_BC1;
-        else nvttf = NVTT_FORMAT_BC3;
-        
-        // bgra is needed, our rgba is actually BGRA internally from the decoder!
-        // wait, let's verify if `rgba` is actually BGRA or RGBA.
-        // In optimizer.c: `uint8_t *rgba = (uint8_t *)malloc(px_count * 4); ... rgba[p*4+0] = bgra[p*4+2]; ...`
-        // Wait, optimizer.c converts to RGBA specifically for bc7enc.
-        // NVTT needs BGRA (NVTT_INPUT_FORMAT_BGRA_8UB).
-        // Let's just create a BGRA buffer.
+        NvttFormat nvttf = (fmt == TEX_FMT_BC1) ? NVTT_FORMAT_BC1 : NVTT_FORMAT_BC3;
+
+        // NVTT wants BGRA; our `rgba` buffer is RGBA, so swap channels.
         uint8_t *bgra = malloc((size_t)w * h * 4);
-        for (int i = 0; i < w * h; i++) {
-            bgra[i*4+0] = rgba[i*4+2];
-            bgra[i*4+1] = rgba[i*4+1];
-            bgra[i*4+2] = rgba[i*4+0];
-            bgra[i*4+3] = rgba[i*4+3];
+        if (bgra) {
+            for (int i = 0; i < w * h; i++) {
+                bgra[i*4+0] = rgba[i*4+2];
+                bgra[i*4+1] = rgba[i*4+1];
+                bgra[i*4+2] = rgba[i*4+0];
+                bgra[i*4+3] = rgba[i*4+3];
+            }
+            uint8_t *enc = NULL;
+            bool ok = nvtt_encode(bgra, w, h, nvttf, &enc, out_size);
+            free(bgra);
+            if (ok && enc) {
+                log_encoder_used("GPU (NVTT CUDA)");
+                return enc;
+            }
         }
-        
-        uint8_t *enc = NULL;
-        bool ok = nvtt_encode(bgra, w, h, nvttf, &enc, out_size);
-        free(bgra);
-        if (ok && enc) return enc;
-        
-        // fallback to CPU
+        // GPU requested but unavailable/failed → fall through to CPU.
+        log_encoder_used("CPU (bc7enc ISPC) [GPU fallback]");
+    } else {
+        log_encoder_used("CPU (bc7enc ISPC)");
     }
 
     int wfmt = tex_fmt_to_wrapper_fmt(fmt);

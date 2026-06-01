@@ -21,6 +21,14 @@ typedef enum {
 // Initialize the NVTT wrapper (loads nvtt.dll)
 bool nvtt_wrapper_init(void);
 
+// True if nvtt.dll is loaded and ready (does not attempt a load on its own
+// after a previous failure was cached).
+bool nvtt_is_available(void);
+
+// Lightweight startup probe: tries to load nvtt.dll and verify the C API is
+// present, logging the result, then unloads. Does NOT initialize CUDA.
+void nvtt_wrapper_probe(void);
+
 // Shutdown the NVTT wrapper
 void nvtt_wrapper_shutdown(void);
 

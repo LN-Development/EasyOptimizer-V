@@ -36,19 +36,67 @@ static bool (*p_nvttCompress)(NvttCompressor, const NvttInputOptions, const Nvtt
 static void (*p_nvttEnableCudaAcceleration)(NvttCompressor, bool);
 
 static HMODULE g_hNvtt = NULL;
+static NvttCompressor g_compressor = NULL;
+static bool g_nvtt_failed = false;   /* cache failure so we don't retry+spam per texture */
+
+bool nvtt_is_available(void) {
+    return g_hNvtt != NULL;
+}
+
+/* Load nvtt.dll preferring the executable's own directory, so its sibling
+ * dependencies (CUDA runtime, etc.) are found via the altered search path. */
+static HMODULE nvtt_load_library(void) {
+    wchar_t exe_dir[MAX_PATH];
+    DWORD n = GetModuleFileNameW(NULL, exe_dir, MAX_PATH);
+    if (n > 0 && n < MAX_PATH) {
+        wchar_t *slash = wcsrchr(exe_dir, L'\\');
+        if (slash) {
+            *slash = 0;
+            wchar_t dll_path[MAX_PATH];
+            _snwprintf(dll_path, MAX_PATH, L"%s\\nvtt.dll", exe_dir);
+            dll_path[MAX_PATH - 1] = 0;
+            HMODULE h = LoadLibraryExW(dll_path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+            if (h) { LOG("nvtt_wrapper: loaded from exe dir"); return h; }
+            LOG_ERR("nvtt_wrapper: LoadLibraryEx('%ls') failed (GetLastError=%lu)",
+                    dll_path, (unsigned long)GetLastError());
+        }
+    }
+    /* Fall back to the default search order. */
+    HMODULE h = LoadLibraryA("nvtt.dll");
+    if (!h)
+        LOG_ERR("nvtt_wrapper: LoadLibrary('nvtt.dll') failed (GetLastError=%lu)",
+                (unsigned long)GetLastError());
+    return h;
+}
+
+void nvtt_wrapper_probe(void) {
+    HMODULE h = nvtt_load_library();
+    if (!h) {
+        LOG("nvtt probe: nvtt.dll NOT loadable -> GPU encoding unavailable (CPU only)");
+        return;
+    }
+    void *fn = (void *)GetProcAddress(h, "nvttCreateCompressor");
+    if (fn)
+        LOG("nvtt probe: nvtt.dll OK, C API present -> GPU encoding available when toggled");
+    else
+        LOG("nvtt probe: nvtt.dll loaded but C API missing -> incompatible build, GPU unavailable");
+    FreeLibrary(h);
+}
 
 bool nvtt_wrapper_init(void) {
-    if (g_hNvtt) return true; // Already loaded
+    if (g_hNvtt) return true;       // Already loaded
+    if (g_nvtt_failed) return false; // Don't retry a known failure (avoids log spam)
 
-    g_hNvtt = LoadLibraryA("nvtt.dll");
+    g_hNvtt = nvtt_load_library();
     if (!g_hNvtt) {
-        LOG_ERR("nvtt_wrapper: Failed to load nvtt.dll");
+        LOG_ERR("nvtt_wrapper: nvtt.dll unavailable; GPU encoding will fall back to CPU");
+        g_nvtt_failed = true;
         return false;
     }
 
     #define LOAD_FUNC(name) \
         p_##name = (void*)GetProcAddress(g_hNvtt, #name); \
-        if (!p_##name) { LOG_ERR("nvtt_wrapper: Missing " #name); FreeLibrary(g_hNvtt); g_hNvtt = NULL; return false; }
+        if (!p_##name) { LOG_ERR("nvtt_wrapper: Missing export " #name); FreeLibrary(g_hNvtt); g_hNvtt = NULL; g_nvtt_failed = true; return false; }
 
     LOAD_FUNC(nvttCreateInputOptions);
     LOAD_FUNC(nvttDestroyInputOptions);
@@ -69,11 +117,18 @@ bool nvtt_wrapper_init(void) {
     LOAD_FUNC(nvttCompress);
     LOAD_FUNC(nvttEnableCudaAcceleration);
 
-    LOG("nvtt_wrapper: nvtt.dll loaded successfully");
+    g_compressor = p_nvttCreateCompressor();
+    p_nvttEnableCudaAcceleration(g_compressor, true); // Initialize CUDA once
+
+    LOG("nvtt_wrapper: nvtt.dll loaded successfully (GPU/CUDA encoder ready)");
     return true;
 }
 
 void nvtt_wrapper_shutdown(void) {
+    if (g_compressor) {
+        p_nvttDestroyCompressor(g_compressor);
+        g_compressor = NULL;
+    }
     if (g_hNvtt) {
         FreeLibrary(g_hNvtt);
         g_hNvtt = NULL;
@@ -130,12 +185,8 @@ bool nvtt_encode(const uint8_t *bgra_data, int width, int height, NvttFormat for
         g_out_capacity = 0;
     }
 
-    NvttCompressor compressor = p_nvttCreateCompressor();
-    p_nvttEnableCudaAcceleration(compressor, true); // Force CUDA GPU
+    bool success = p_nvttCompress(g_compressor, inputOptions, compressionOptions, outputOptions);
 
-    bool success = p_nvttCompress(compressor, inputOptions, compressionOptions, outputOptions);
-
-    p_nvttDestroyCompressor(compressor);
     p_nvttDestroyOutputOptions(outputOptions);
     p_nvttDestroyCompressionOptions(compressionOptions);
     p_nvttDestroyInputOptions(inputOptions);

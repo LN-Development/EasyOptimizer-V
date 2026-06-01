@@ -9,6 +9,7 @@
 #include "optimizer.h"
 #include "dds.h"
 #include "bc7enc_wrapper.h"
+#include "nvtt_c_wrapper.h"
 #include "log.h"
 #include <stdio.h>
 #include <stdarg.h>
@@ -172,6 +173,18 @@ static int g_scan_failed = 0;
 static PendingRemoval *g_pending_removals = NULL;
 static int g_pending_removal_count = 0;
 static bool g_has_pending_migration = false;
+
+/* Log which encoder a batch operation will drive (and whether GPU is usable). */
+static void log_encoder_intent(const char *op) {
+    if (g_app.use_gpu_encoding) {
+        bool ready = nvtt_wrapper_init();
+        LOG("%s: encoder = GPU%s", op,
+            ready ? " (NVTT/CUDA ready)"
+                  : " requested, but NVTT unavailable -> CPU (bc7enc) fallback");
+    } else {
+        LOG("%s: encoder = CPU (bc7enc ISPC)", op);
+    }
+}
 
 static size_t archive_total_size(const YtdFile *archive) {
     size_t total = 0;
@@ -1301,6 +1314,7 @@ static void do_smart_optimize(void) {
     if (result != IDOK) return;
 
     LOG("do_smart_optimize: max=%dx%d fmt=%d", params.max_w, params.max_h, params.fmt);
+    log_encoder_intent("Smart Optimize");
     gui_update_status("Optimizing... max %dx%d", params.max_w, params.max_h);
 
     int total_resized = 0;
@@ -1355,6 +1369,7 @@ static void do_fast_recompress(void) {
     }
     int total = 0, downgraded = 0;
     size_t size_before = 0, size_after = 0;
+    log_encoder_intent("Fast Recompress");
     gui_update_status("Fast Recompressing...");
     for (int i = 0; i < g_app.ytd_count; i++) {
         YtdFile *ytd = g_app.ytds[i];
@@ -2032,8 +2047,9 @@ static LRESULT CALLBACK SidebarWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
                     case ID_SIDEBAR_OPTIMIZE: do_smart_optimize(); break;
                     case ID_SIDEBAR_FASTRECOMP: do_fast_recompress(); break;
                     case ID_SIDEBAR_ADDFOLDER:  open_folder_dialog(g_app.hwnd_main); break;
-                    case ID_SIDEBAR_TOGGLE_ENC: 
+                    case ID_SIDEBAR_TOGGLE_ENC:
                         g_app.use_gpu_encoding = !g_app.use_gpu_encoding;
+                        log_encoder_intent("Encoder toggled");
                         update_sidebar_labels();
                         InvalidateRect(hwnd, NULL, TRUE);
                         break;
