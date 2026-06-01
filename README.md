@@ -1,6 +1,6 @@
 # EasyOptimizer-V
 
-A high-performance GTA V texture optimizer written in pure C with Win32 GUI.
+A high-performance GTA V texture optimizer written in C.
 
 ## Features
 
