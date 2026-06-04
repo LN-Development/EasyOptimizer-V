@@ -4,9 +4,29 @@
 #include "image.h"
 #include <stdio.h>
 
+static size_t gui_archive_total_size(const YtdFile *archive) {
+    size_t total = 0;
+    if (!archive || !archive->textures) return 0;
+    for (int i = 0; i < archive->texture_count; i++)
+        total += archive->textures[i].data_size;
+    return total;
+}
+
+static size_t gui_rpf_total_size(const YtdFile *group, YtdFile **all_archives, int archive_count) {
+    size_t total = 0;
+    if (!group || !all_archives) return 0;
+    for (int i = 0; i < archive_count; i++) {
+        YtdFile *child = all_archives[i];
+        if (child && child->rpf_parent == group)
+            total += gui_archive_total_size(child);
+    }
+    return total;
+}
+
 /* ── YTD Folder Card ───────────────────────────────────────────────── */
 
-void gui_draw_ytd_card(HDC hdc, int x, int y, int w, YtdFile *ytd, bool hovered) {
+void gui_draw_ytd_card(HDC hdc, int x, int y, int w, YtdFile *ytd,
+                       YtdFile **all_archives, int archive_count, bool hovered) {
     RECT rc = {x, y, x + w, y + 56};
 
     HBRUSH fill = CreateSolidBrush(hovered ? CLR_HOVER : CLR_SURFACE_DARK);
@@ -41,14 +61,15 @@ void gui_draw_ytd_card(HDC hdc, int x, int y, int w, YtdFile *ytd, bool hovered)
     DrawTextW(hdc, wname, -1, &name_rc, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS);
 
     /* Info line */
-    size_t total_size = 0;
-    for (int i = 0; i < ytd->texture_count; i++)
-        total_size += ytd->textures[i].data_size;
+    size_t total_size = ytd->is_rpf_group
+        ? gui_rpf_total_size(ytd, all_archives, archive_count)
+        : gui_archive_total_size(ytd);
     double total_mib = total_size / (1024.0 * 1024.0);
 
     wchar_t info[128];
     if (ytd->is_rpf_group)
-        _snwprintf(info, 128, L"RPF archive | %d files | expand to retrieve list", ytd->rpf_child_count);
+        _snwprintf(info, 128, L"RPF archive | %d files | %.2f MiB total | expand to retrieve list",
+            ytd->rpf_child_count, total_mib);
     else if (ytd->is_preview)
         _snwprintf(info, 128, L"PREVIEW | %d textures | %.2f MiB", ytd->texture_count, total_mib);
     else
@@ -120,11 +141,14 @@ void gui_draw_rpf_entry_row(HDC hdc, int x, int y, int w, YtdFile *ytd) {
     RECT name_rc = {x + 14, y + 6, x + w - 126, y + 22};
     DrawTextW(hdc, name, -1, &name_rc, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS);
 
-    wchar_t info[96];
+    size_t total_size = gui_archive_total_size(ytd);
+    double total_mib = total_size / (1024.0 * 1024.0);
+    wchar_t info[128];
     if (!ytd->textures)
-        _snwprintf(info, 96, L"listed only | preview unavailable");
+        _snwprintf(info, 128, L"listed only | preview unavailable");
     else
-        _snwprintf(info, 96, L"%d textures | read-only from RPF", ytd->texture_count);
+        _snwprintf(info, 128, L"%d textures | %.2f MiB | read-only from RPF",
+            ytd->texture_count, total_mib);
     SetTextColor(hdc, CLR_TEXT_SECONDARY);
     SelectObject(hdc, theme_font_small());
     RECT info_rc = {x + 14, y + 22, x + w - 126, y + 38};

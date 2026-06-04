@@ -11,9 +11,11 @@
 #include "bc7enc_wrapper.h"
 #include "nvtt_c_wrapper.h"
 #include "rpf_scan.h"
+#include "keygen.h"
 #include "log.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include <commctrl.h>
 #include <commdlg.h>
 #include <shlwapi.h>
@@ -129,6 +131,9 @@ static void do_custom_resize(int ytd_idx, int tex_idx);
 static void do_texture_export_dds(int ytd_idx, int tex_idx);
 static void do_texture_remove(int ytd_idx, int tex_idx);
 static void do_texture_unload(int ytd_idx, int tex_idx);
+static bool ng_keys_available(void);
+static void log_ng_keys_state(void);
+static bool ensure_ng_keys_for_rpf(void);
 static void unload_rpf_archive(int ytd_idx);
 static int texture_grid_height(YtdFile *ytd, int area_w);
 static void select_language(void);
@@ -187,6 +192,9 @@ typedef enum {
     SORT_BY_TYPE,
     SORT_BY_SIZE,
     SORT_BY_TEXTURE_COUNT,
+    SORT_BY_RESOLUTION,
+    SORT_BY_MIPMAPS,
+    SORT_BY_COMPRESSION,
     SORT_BY_MODIFIED
 } ArchiveSortMode;
 
@@ -230,6 +238,37 @@ static size_t archive_total_size(const YtdFile *archive) {
     return total;
 }
 
+static const TextureEntry *archive_largest_texture(const YtdFile *archive) {
+    const TextureEntry *best = NULL;
+    int best_area = -1;
+    for (int i = 0; i < archive->texture_count; i++) {
+        const TextureEntry *tex = &archive->textures[i];
+        int area = tex->width * tex->height;
+        if (!best || area > best_area) {
+            best = tex;
+            best_area = area;
+        }
+    }
+    return best;
+}
+
+static int archive_max_resolution(const YtdFile *archive) {
+    const TextureEntry *tex = archive_largest_texture(archive);
+    return tex ? tex->width * tex->height : 0;
+}
+
+static int archive_max_mipmaps(const YtdFile *archive) {
+    int best = 0;
+    for (int i = 0; i < archive->texture_count; i++)
+        if (archive->textures[i].mip_count > best) best = archive->textures[i].mip_count;
+    return best;
+}
+
+static TexFormat archive_primary_format(const YtdFile *archive) {
+    const TextureEntry *tex = archive_largest_texture(archive);
+    return tex ? tex->format : TEX_FMT_UNKNOWN;
+}
+
 static int compare_archives(const void *left, const void *right) {
     const YtdFile *a = *(YtdFile * const *)left;
     const YtdFile *b = *(YtdFile * const *)right;
@@ -242,14 +281,86 @@ static int compare_archives(const void *left, const void *right) {
         }
         case SORT_BY_TEXTURE_COUNT:
             return (a->texture_count < b->texture_count) - (a->texture_count > b->texture_count);
+        case SORT_BY_RESOLUTION: {
+            int ar = archive_max_resolution(a), br = archive_max_resolution(b);
+            if (ar != br) return (ar < br) - (ar > br);
+            break;
+        }
+        case SORT_BY_MIPMAPS: {
+            int am = archive_max_mipmaps(a), bm = archive_max_mipmaps(b);
+            if (am != bm) return (am < bm) - (am > bm);
+            break;
+        }
+        case SORT_BY_COMPRESSION: {
+            int cf = _stricmp(tex_format_name(archive_primary_format(a)),
+                              tex_format_name(archive_primary_format(b)));
+            if (cf != 0) return cf;
+            break;
+        }
         case SORT_BY_MODIFIED:
             return (a->modified < b->modified) - (a->modified > b->modified);
         default:
             return _stricmp(a->name, b->name);
     }
+    return _stricmp(a->name, b->name);
+}
+
+static int compare_textures(const void *left, const void *right) {
+    const TextureEntry *a = (const TextureEntry *)left;
+    const TextureEntry *b = (const TextureEntry *)right;
+    switch (g_sort_mode) {
+        case SORT_BY_SIZE:
+            if (a->data_size != b->data_size)
+                return (a->data_size < b->data_size) - (a->data_size > b->data_size);
+            break;
+        case SORT_BY_RESOLUTION: {
+            int ar = a->width * a->height;
+            int br = b->width * b->height;
+            if (ar != br) return (ar < br) - (ar > br);
+            if (a->width != b->width) return (a->width < b->width) - (a->width > b->width);
+            if (a->height != b->height) return (a->height < b->height) - (a->height > b->height);
+            break;
+        }
+        case SORT_BY_MIPMAPS:
+            if (a->mip_count != b->mip_count)
+                return (a->mip_count < b->mip_count) - (a->mip_count > b->mip_count);
+            break;
+        case SORT_BY_COMPRESSION:
+        case SORT_BY_TYPE: {
+            int fmt = _stricmp(tex_format_name(a->format), tex_format_name(b->format));
+            if (fmt != 0) return fmt;
+            break;
+        }
+        case SORT_BY_NAME:
+        default:
+            break;
+    }
+    return _stricmp(a->name, b->name);
+}
+
+static void apply_texture_sort(void) {
+    switch (g_sort_mode) {
+        case SORT_BY_NAME:
+        case SORT_BY_TYPE:
+        case SORT_BY_SIZE:
+        case SORT_BY_RESOLUTION:
+        case SORT_BY_MIPMAPS:
+        case SORT_BY_COMPRESSION:
+            break;
+        default:
+            return;
+    }
+
+    for (int i = 0; i < g_app.ytd_count; i++) {
+        YtdFile *archive = g_app.ytds[i];
+        if (!archive || archive->is_rpf_group || !archive->textures || archive->texture_count <= 1)
+            continue;
+        qsort(archive->textures, archive->texture_count, sizeof(archive->textures[0]), compare_textures);
+    }
 }
 
 static void apply_archive_sort(void) {
+    apply_texture_sort();
     if (g_app.ytd_count > 1)
         qsort(g_app.ytds, g_app.ytd_count, sizeof(g_app.ytds[0]), compare_archives);
 }
@@ -363,6 +474,9 @@ static void update_sidebar_labels(void) {
         case SORT_BY_TYPE: g_sidebar_btns[11].text = trw8(L"Sort: Type", L"Ordenar: Tipo", L"Ordenar: Tipo", L"Сорт.: Тип", L"Sırala: Tür", L"排序: 类型", L"क्रम: प्रकार", L"並べ替え: 種類"); break;
         case SORT_BY_SIZE: g_sidebar_btns[11].text = trw8(L"Sort: Size", L"Ordenar: Tamanho", L"Ordenar: Tamaño", L"Сорт.: Размер", L"Sırala: Boyut", L"排序: 大小", L"क्रम: आकार", L"並べ替え: サイズ"); break;
         case SORT_BY_TEXTURE_COUNT: g_sidebar_btns[11].text = trw8(L"Sort: Textures", L"Ordenar: Texturas", L"Ordenar: Texturas", L"Сорт.: Текстуры", L"Sırala: Dokular", L"排序: 纹理数", L"क्रम: टेक्सचर", L"並べ替え: テクスチャ"); break;
+        case SORT_BY_RESOLUTION: g_sidebar_btns[11].text = trw8(L"Sort: Resolution", L"Ordenar: Resolucao", L"Ordenar: Resolucion", L"Sort: Resolution", L"Sort: Resolution", L"Sort: Resolution", L"Sort: Resolution", L"Sort: Resolution"); break;
+        case SORT_BY_MIPMAPS: g_sidebar_btns[11].text = trw8(L"Sort: Mipmaps", L"Ordenar: Mipmaps", L"Ordenar: Mipmaps", L"Sort: Mipmaps", L"Sort: Mipmaps", L"Sort: Mipmaps", L"Sort: Mipmaps", L"Sort: Mipmaps"); break;
+        case SORT_BY_COMPRESSION: g_sidebar_btns[11].text = trw8(L"Sort: Compression", L"Ordenar: Compressao", L"Ordenar: Compresion", L"Sort: Compression", L"Sort: Compression", L"Sort: Compression", L"Sort: Compression", L"Sort: Compression"); break;
         case SORT_BY_MODIFIED: g_sidebar_btns[11].text = trw8(L"Sort: Modified", L"Ordenar: Modificados", L"Ordenar: Modificados", L"Сорт.: Изменены", L"Sırala: Değişen", L"排序: 已修改", L"क्रम: संशोधित", L"並べ替え: 更新"); break;
         default: g_sidebar_btns[11].text = trw8(L"Sort: Name", L"Ordenar: Nome", L"Ordenar: Nombre", L"Сорт.: Имя", L"Sırala: Ad", L"排序: 名称", L"क्रम: नाम", L"並べ替え: 名前"); break;
     }
@@ -427,9 +541,12 @@ void gui_init(HINSTANCE hInst) {
         WS_CHILD | WS_VISIBLE | WS_VSCROLL, SIDEBAR_WIDTH, HEADER_HEIGHT, 600, 500,
         g_app.hwnd_main, NULL, hInst, NULL);
 
+    /* Parent the search box to the main window (not the header STATIC) so its
+     * EN_CHANGE notifications reach MainWndProc's WM_COMMAND handler. Positioned
+     * over the header area by layout_children; created last so it stays on top. */
     g_app.hwnd_search = CreateWindowExW(0, L"EDIT", NULL,
         WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        0, 0, 300, 28, g_app.hwnd_header, (HMENU)ID_SEARCH_BOX, hInst, NULL);
+        0, 0, 300, 28, g_app.hwnd_main, (HMENU)ID_SEARCH_BOX, hInst, NULL);
     SendMessageW(g_app.hwnd_search, WM_SETFONT, (WPARAM)theme_font_display(), TRUE);
     SetWindowTextW(g_app.hwnd_search, L"");
 
@@ -439,6 +556,7 @@ void gui_init(HINSTANCE hInst) {
 
     layout_children();
     gui_update_status("Ready - No files loaded");
+    log_ng_keys_state();
 
     ShowWindow(g_app.hwnd_main, SW_SHOW);
     UpdateWindow(g_app.hwnd_main);
@@ -816,10 +934,12 @@ void gui_add_ytd(const wchar_t *path) {
         group->expanded = false;
         g_app.ytds[g_app.ytd_count++] = group;
 
-        RpfImportContext context = {path, group, 0, 0, 0};
+        RpfImportContext context = {path, group, 0, 0, 0, 0};
         char error[256] = {0};
         int result = rpf_scan_file(path, import_rpf_entry, &context, error, sizeof(error));
         if (result < 0) {
+            bool missing_ng_keys = (strstr(error, "ng.dat") != NULL) ||
+                                   (strstr(error, "NG-encrypted") != NULL);
             for (int i = g_app.ytd_count - 1; i >= 0; i--) {
                 if (g_app.ytds[i]->rpf_parent != group) continue;
                 ytd_free(g_app.ytds[i]);
@@ -837,6 +957,13 @@ void gui_add_ytd(const wchar_t *path) {
             ytd_free(group);
             LOG_ERR("RPF scan failed: %s", error);
             gui_update_status("RPF scan failed: %s", error);
+            if (missing_ng_keys) {
+                if (ensure_ng_keys_for_rpf()) {
+                    gui_update_status("NG keys ready; retrying RPF scan");
+                    gui_add_ytd(path);
+                }
+                return;
+            }
             return;
         }
         group->rpf_child_count = context.discovered;
@@ -907,6 +1034,130 @@ static void select_language(void) {
     update_sidebar_labels();
     InvalidateRect(g_app.hwnd_sidebar, NULL, TRUE);
     InvalidateRect(g_app.hwnd_content, NULL, TRUE);
+}
+
+/* ── Generate ng.dat / lut.dat from the user's GTA5.exe ────────────────── */
+
+static void keygen_status_cb(const wchar_t *status, int percent, void *ctx) {
+    (void)ctx;
+    char buf[256];
+    WideCharToMultiByte(CP_UTF8, 0, status, -1, buf, sizeof(buf), NULL, NULL);
+    gui_update_status("Key generation: %d%% - %s", percent, buf);
+    /* Pump paint messages so the status bar updates during the blocking scan. */
+    SetWindowTextW(g_app.hwnd_status, NULL);  /* force statusbar refresh below */
+    wchar_t wbuf[300];
+    _snwprintf(wbuf, 300, L"Key generation %d%% - %s", percent, status);
+    SendMessageW(g_app.hwnd_status, SB_SETTEXTW, 0, (LPARAM)wbuf);
+    MSG msg;
+    while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+        if (msg.message == WM_QUIT) { PostQuitMessage(0); break; }
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+}
+
+static bool app_dir_file_path(const wchar_t *name, wchar_t *out, size_t out_count) {
+    if (!GetModuleFileNameW(NULL, out, (DWORD)out_count)) return false;
+    wchar_t *slash = wcsrchr(out, L'\\');
+    if (!slash) return false;
+    slash[1] = 0;
+    wcsncat(out, name, out_count - wcslen(out) - 1);
+    out[out_count - 1] = 0;
+    return true;
+}
+
+static bool file_size_matches(const wchar_t *path, LONGLONG expected_size) {
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (!GetFileAttributesExW(path, GetFileExInfoStandard, &data)) return false;
+    LARGE_INTEGER size;
+    size.HighPart = data.nFileSizeHigh;
+    size.LowPart = data.nFileSizeLow;
+    return size.QuadPart == expected_size;
+}
+
+static bool ng_keys_available(void) {
+    wchar_t ng_path[MAX_PATH], lut_path[MAX_PATH];
+    return app_dir_file_path(L"ng.dat", ng_path, MAX_PATH) &&
+           app_dir_file_path(L"lut.dat", lut_path, MAX_PATH) &&
+           file_size_matches(ng_path, 306000) &&
+           file_size_matches(lut_path, 256);
+}
+
+static void log_ng_keys_state(void) {
+    if (ng_keys_available())
+        LOG("GTA keys: available (ng.dat/lut.dat valid)");
+    else
+        LOG("GTA keys: not available (will auto-acquire when encrypted RPF needs them)");
+}
+
+/* Pick the user's gta5.exe and derive ng.dat/lut.dat next to our executable. */
+static bool ensure_ng_keys_for_rpf(void) {
+    if (ng_keys_available()) {
+        LOG("GTA keys: ng.dat/lut.dat already available");
+        return true;
+    }
+    LOG("GTA keys: ng.dat/lut.dat missing; automatic acquisition required");
+    int go = MessageBoxW(g_app.hwnd_main,
+        trw(L"This will scan your GTA5.exe and generate the NG decryption keys "
+            L"(ng.dat / lut.dat) needed to read encrypted vanilla RPF archives.\n\n"
+            L"No key data is distributed — keys are derived from your own game copy.\n"
+            L"The scan can take up to a minute and the window may appear busy.\n\nContinue?",
+            L"Isto vai escanear seu GTA5.exe e gerar as chaves NG (ng.dat / lut.dat) "
+            L"necessárias para ler RPFs vanilla criptografados.\n\nNenhuma chave é distribuída — "
+            L"elas são derivadas da sua própria cópia do jogo.\nA varredura pode levar até um "
+            L"minuto e a janela pode parecer ocupada.\n\nContinuar?",
+            L"Esto escaneará tu GTA5.exe y generará las claves NG (ng.dat / lut.dat).\n\n¿Continuar?",
+            L"Это просканирует ваш GTA5.exe и создаст ключи NG (ng.dat / lut.dat).\n\nПродолжить?"),
+        L"Generate GTA Keys", MB_OKCANCEL | MB_ICONINFORMATION);
+    if (go != IDOK) {
+        LOG("GTA keys: acquisition cancelled by user");
+        return false;
+    }
+
+    /* File picker limited to executables, defaulting to gta5.exe. */
+    wchar_t exe_path[MAX_PATH] = L"gta5.exe";
+    OPENFILENAMEW ofn = {sizeof(ofn)};
+    ofn.hwndOwner = g_app.hwnd_main;
+    ofn.lpstrFilter = L"GTA executable\0gta5.exe;gta5_enhanced.exe;*.exe\0All files\0*.*\0";
+    ofn.lpstrFile = exe_path;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrTitle = L"Select your GTA5.exe";
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+    if (!GetOpenFileNameW(&ofn)) {
+        LOG("GTA keys: acquisition cancelled before selecting GTA5.exe");
+        return false;
+    }
+
+    /* Output directory = this application's own folder (where rpf_scan reads keys). */
+    wchar_t app_dir[MAX_PATH];
+    GetModuleFileNameW(NULL, app_dir, MAX_PATH);
+    wchar_t *slash = wcsrchr(app_dir, L'\\');
+    if (slash) *slash = 0;
+
+    HCURSOR old_cursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
+    char err[256] = {0};
+    LOG("GTA keys: scanning selected GTA executable");
+    bool ok = keygen_from_exe(exe_path, app_dir, keygen_status_cb, NULL, err, sizeof(err));
+    SetCursor(old_cursor);
+
+    if (ok) {
+        MessageBoxW(g_app.hwnd_main,
+            trw(L"Keys generated successfully. Encrypted vanilla RPF archives can now be opened.",
+                L"Chaves geradas com sucesso. RPFs vanilla criptografados agora podem ser abertos.",
+                L"Claves generadas con éxito.", L"Ключи успешно созданы."),
+            L"Generate GTA Keys", MB_OK | MB_ICONINFORMATION);
+        gui_update_status("ng.dat / lut.dat generated from GTA5.exe");
+        LOG("GTA keys: acquired successfully (ng.dat/lut.dat generated)");
+        return true;
+    } else {
+        wchar_t wmsg[400], werr[256];
+        MultiByteToWideChar(CP_UTF8, 0, err, -1, werr, 256);
+        _snwprintf(wmsg, 400, L"Key generation failed:\n\n%s", werr);
+        MessageBoxW(g_app.hwnd_main, wmsg, L"Generate GTA Keys", MB_OK | MB_ICONERROR);
+        gui_update_status("Key generation failed: %s", err);
+        LOG_ERR("GTA keys: acquisition failed: %s", err);
+        return false;
+    }
 }
 
 static bool save_archive_to_path(YtdFile *archive, const wchar_t *path) {
@@ -2196,6 +2447,7 @@ static int texture_grid_height(YtdFile *ytd, int area_w) {
     int visible = 0;
     for (int i = 0; i < ytd->texture_count; i++)
         if (texture_matches_search(&ytd->textures[i])) visible++;
+    if (visible == 0) return 36;
     return ((visible + cards_per_row - 1) / cards_per_row) * (CARD_H + CARD_MARGIN) + 8;
 }
 
@@ -2221,12 +2473,41 @@ static bool handle_archive_header_click(HWND hwnd, int mx, int my, int y,
         }
     }
     ytd->expanded = !ytd->expanded;
+    LOG("Archive '%s' %s (%d textures)", ytd->name,
+        ytd->expanded ? "expanded" : "collapsed", ytd->texture_count);
+    if (ytd->expanded) {
+        RECT view_rc;
+        GetClientRect(hwnd, &view_rc);
+        int grid_top = y + FOLDER_H + 4;
+        int target_scroll = grid_top - 12;
+        int max_scroll = g_app.content_height - view_rc.bottom;
+        if (max_scroll < 0) max_scroll = 0;
+        if (target_scroll > max_scroll) target_scroll = max_scroll;
+        if (target_scroll < 0) target_scroll = 0;
+        if (target_scroll > g_app.scroll_y)
+            g_app.scroll_y = target_scroll;
+    }
     InvalidateRect(hwnd, NULL, TRUE);
     return true;
 }
 
 static void paint_texture_grid(HDC hdc, RECT *viewport, YtdFile *ytd,
                                int cards_per_row, int *io_y) {
+    int visible = 0;
+    for (int t = 0; t < ytd->texture_count; t++)
+        if (texture_matches_search(&ytd->textures[t])) visible++;
+
+    if (visible == 0) {
+        RECT empty = {12, *io_y, viewport->right - 12, *io_y + 28};
+        SetTextColor(hdc, CLR_TEXT_SECONDARY);
+        SelectObject(hdc, theme_font_small());
+        DrawTextW(hdc,
+            ytd->texture_count > 0 ? L"No textures match the current search" : L"No previewable textures in this entry",
+            -1, &empty, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        *io_y += 36;
+        return;
+    }
+
     int col = 0;
     for (int t = 0; t < ytd->texture_count; t++) {
         TextureEntry *tex = &ytd->textures[t];
@@ -2279,7 +2560,8 @@ static void paint_content(HWND hwnd, HDC hdc) {
 
         /* Folder card */
         if (y + FOLDER_H >= 0 && y <= rc.bottom) {
-            gui_draw_ytd_card(hdc, 8, y, area_w - 16, ytd, false);
+            gui_draw_ytd_card(hdc, 8, y, area_w - 16, ytd,
+                g_app.ytds, g_app.ytd_count, false);
         }
         y += FOLDER_H + 4;
 
@@ -2606,6 +2888,20 @@ static LRESULT CALLBACK ContentWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
                             unload_rpf_archive(c);
                         } else {
                             child->expanded = !child->expanded;
+                            LOG("RPF entry '%s' %s (%d textures)", child->name,
+                                child->expanded ? "expanded" : "collapsed", child->texture_count);
+                            if (child->expanded) {
+                                RECT view_rc;
+                                GetClientRect(hwnd, &view_rc);
+                                int grid_top = y + RPF_ENTRY_H + 4;
+                                int target_scroll = grid_top - 12;
+                                int max_scroll = g_app.content_height - view_rc.bottom;
+                                if (max_scroll < 0) max_scroll = 0;
+                                if (target_scroll > max_scroll) target_scroll = max_scroll;
+                                if (target_scroll < 0) target_scroll = 0;
+                                if (target_scroll > g_app.scroll_y)
+                                    g_app.scroll_y = target_scroll;
+                            }
                             InvalidateRect(hwnd, NULL, TRUE);
                         }
                         return 0;
@@ -2700,7 +2996,7 @@ static LRESULT CALLBACK SidebarWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
                         break;
                     case ID_SIDEBAR_LANGUAGE: select_language(); break;
                     case ID_SIDEBAR_SORT:
-                        g_sort_mode = (ArchiveSortMode)((g_sort_mode + 1) % 5);
+                        g_sort_mode = (ArchiveSortMode)((g_sort_mode + 1) % 8);
                         apply_archive_sort();
                         update_sidebar_labels();
                         InvalidateRect(g_app.hwnd_content, NULL, TRUE);

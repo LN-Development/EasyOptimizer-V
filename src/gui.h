@@ -43,7 +43,8 @@ void gui_render_content(HDC hdc, RECT *rc);
 void gui_update_status(const char *fmt, ...);
 
 /* gui_cards.c */
-void gui_draw_ytd_card(HDC hdc, int x, int y, int w, YtdFile *ytd, bool hovered);
+void gui_draw_ytd_card(HDC hdc, int x, int y, int w, YtdFile *ytd,
+                       YtdFile **all_archives, int archive_count, bool hovered);
 void gui_draw_rpf_entry_row(HDC hdc, int x, int y, int w, YtdFile *ytd);
 void gui_draw_texture_card(HDC hdc, int x, int y, int card_w, int card_h,
                            TextureEntry *tex, YtdFile *parent, bool hovered);

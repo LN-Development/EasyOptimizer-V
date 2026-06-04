@@ -244,3 +244,4 @@ ModelManifest.xml
 # FAKE - F# Make
 .fake/
 /Toolbar/cammodes.psd
+gtav_key_hashes.dat

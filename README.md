@@ -90,7 +90,13 @@ The app probes for the DLL at startup and reports its status in the log. Falls b
 
 ### NG-encrypted RPF Support (optional)
 
-Place `ng.dat` and `lut.dat` (key tables extracted from the GTA V executable) beside the executable to enable reading of NG-encrypted RPF archives (vanilla GTA V game files). Without these files, only AES-encrypted and plain-TOC RPFs are supported.
+Reading **NG-encrypted** RPF archives (vanilla GTA V game files) needs `ng.dat` and `lut.dat`. You can generate them yourself from your own game copy — **no key material is distributed**:
+
+1. Click **Get GTA Keys** in the sidebar (or accept the prompt that appears when you open an NG-encrypted RPF without keys).
+2. Select your `GTA5.exe`.
+3. The app scans the executable for the key windows (matched against the SHA-1 fingerprints in the bundled `gtav_key_hashes.dat`) and writes `ng.dat` + `lut.dat` next to itself.
+
+This mirrors CodeWalker's approach: only SHA-1 hashes are shipped, never the keys themselves — the keys are derived from your own installation. **AES-encrypted** and **CFXP** (OpenIV/FiveM mod) RPFs work without any key files.
 
 ---
 
