@@ -195,6 +195,42 @@ struct Crypto {
         for (size_t i = 0; i < 4; ++i) wr32(out[i], block + i * 4U);
     }
 
+    /* AES-ECB encrypt the table of contents (mirror of decrypt_aes); used when
+     * rewriting an AES-encrypted archive. Only the 16-byte-aligned prefix is
+     * transformed, exactly like the decrypt path. */
+    std::vector<uint8_t> encrypt_aes(std::vector<uint8_t> data) const {
+        static const uint8_t key[32] = {
+            0xB3,0x89,0x73,0xAF,0x8B,0x9E,0x26,0x3A,0x8D,0xF1,0x70,0x32,0x14,0x42,0xB3,0x93,
+            0x8B,0xD3,0xF2,0x1F,0xA4,0xD0,0x4D,0xFF,0x88,0x2E,0x04,0x66,0x0F,0xF9,0x9D,0xFD
+        };
+        const size_t aligned = data.size() - data.size() % 16U;
+        if (!aligned) return data;
+        BCRYPT_ALG_HANDLE algorithm = NULL;
+        BCRYPT_KEY_HANDLE handle = NULL;
+        DWORD object_size = 0, written = 0;
+        std::vector<uint8_t> key_object;
+        if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_AES_ALGORITHM, NULL, 0) < 0)
+            throw std::runtime_error("failed to initialize AES");
+        const wchar_t mode[] = BCRYPT_CHAIN_MODE_ECB;
+        if (BCryptSetProperty(algorithm, BCRYPT_CHAINING_MODE, (PUCHAR)mode, sizeof(mode), 0) < 0 ||
+            BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH, (PUCHAR)&object_size, sizeof(object_size), &written, 0) < 0) {
+            BCryptCloseAlgorithmProvider(algorithm, 0);
+            throw std::runtime_error("failed to configure AES");
+        }
+        key_object.resize(object_size);
+        if (BCryptGenerateSymmetricKey(algorithm, &handle, key_object.data(), object_size,
+                                       (PUCHAR)key, sizeof(key), 0) < 0 ||
+            BCryptEncrypt(handle, data.data(), static_cast<ULONG>(aligned), NULL, NULL, 0,
+                          data.data(), static_cast<ULONG>(aligned), &written, 0) < 0) {
+            if (handle) BCryptDestroyKey(handle);
+            BCryptCloseAlgorithmProvider(algorithm, 0);
+            throw std::runtime_error("failed to encrypt AES RPF table");
+        }
+        BCryptDestroyKey(handle);
+        BCryptCloseAlgorithmProvider(algorithm, 0);
+        return data;
+    }
+
     std::vector<uint8_t> decrypt_ng(std::vector<uint8_t> data, const std::string &name,
                                     uint32_t archive_size) const {
         const size_t key_index = (jenk_hash(name, lut) + archive_size + 61U) % 0x65U;
@@ -358,6 +394,166 @@ int scan_archive(Reader &reader, const Archive &archive, RpfScanCallback callbac
     return imported;
 }
 
+/* ── RPF write-back (flat, non-NG) ─────────────────────────────────────── */
+
+constexpr uint32_t RPF_RES_SIZE_MAX = 0xFFFFFFU;  /* 24-bit file_size field */
+
+uint64_t align512(uint64_t v) { return (v + RPF_BLOCK_SIZE - 1) & ~(uint64_t)(RPF_BLOCK_SIZE - 1); }
+
+int rewrite_archive(const wchar_t *src_path, const wchar_t *dst_path,
+                    const RpfReplacement *reps, int rep_count) {
+    Reader reader(src_path);
+
+    const auto header = reader.read(0, 16);
+    if (rd32(header.data()) != RPF_MAGIC)
+        throw std::runtime_error("selected file is not a valid RPF7 archive");
+    const uint32_t count        = rd32(header.data() + 4);
+    const uint32_t names_length = rd32(header.data() + 8);
+    const uint32_t encryption   = rd32(header.data() + 12);
+    if (encryption == NG_ENCRYPTION)
+        throw std::runtime_error("NG-encrypted RPF archives cannot be rewritten");
+
+    static const Crypto crypto;
+    const std::string self_name;  /* AES/plaintext don't need the archive name */
+    auto entries = reader.read(16, static_cast<size_t>(count) * 16);
+    auto names   = reader.read(16 + static_cast<uint64_t>(count) * 16, names_length);
+    auto entries_plain = crypto.decrypt(entries, encryption, self_name, static_cast<uint32_t>(reader.size));
+    auto names_plain   = crypto.decrypt(names, encryption, self_name, static_cast<uint32_t>(reader.size));
+
+    /* Parse entries (mirror of parse_entries, kept local so we retain raw blobs). */
+    Archive archive{0, reader.size, {}, self_name};
+    std::vector<Entry> parsed(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint8_t *blob = entries_plain.data() + static_cast<size_t>(i) * 16;
+        const uint32_t second = rd32(blob + 4);
+        Entry &e = parsed[i];
+        uint32_t name_offset = 0;
+        if (second == 0x7FFFFF00U) {
+            e.type = EntryType::Directory;
+            name_offset = rd32(blob) & 0xFFFFU;
+            e.entries_index = rd32(blob + 8);
+            e.entries_count = rd32(blob + 12);
+        } else if ((second & 0x80000000U) == 0U) {
+            const uint64_t low = rd64(blob);
+            e.type = EntryType::Binary;
+            name_offset = static_cast<uint32_t>(low & 0xFFFFU);
+            e.file_size = static_cast<uint32_t>((low >> 16U) & 0xFFFFFFU);
+            e.file_offset = static_cast<uint32_t>((low >> 40U) & 0xFFFFFFU);
+            e.file_uncompressed_size = rd32(blob + 8);
+        } else {
+            e.type = EntryType::Resource;
+            name_offset = static_cast<uint32_t>(blob[0] | (blob[1] << 8U));
+            e.file_size = static_cast<uint32_t>(blob[2] | (blob[3] << 8U) | (blob[4] << 16U));
+            e.file_offset = static_cast<uint32_t>(blob[5] | (blob[6] << 8U) | (blob[7] << 16U)) & 0x7FFFFFU;
+            e.system_flags = rd32(blob + 8);
+            e.graphics_flags = rd32(blob + 12);
+        }
+        e.name = read_name(names_plain, name_offset);
+    }
+    if (parsed.empty() || parsed[0].type != EntryType::Directory)
+        throw std::runtime_error("RPF root entry is not a directory");
+
+    /* Resolve a logical path for every leaf file entry (no recursion into
+     * nested .rpf containers; those stay opaque binaries). */
+    std::vector<std::pair<uint32_t, std::wstring>> file_paths;  /* (index, logical) */
+    std::function<void(uint32_t, const std::wstring &)> walk;
+    walk = [&](uint32_t dir_index, const std::wstring &prefix) {
+        const Entry &dir = parsed.at(dir_index);
+        const uint32_t end = std::min<uint32_t>(dir.entries_index + dir.entries_count, count);
+        for (uint32_t i = dir.entries_index; i < end; ++i) {
+            const Entry &e = parsed[i];
+            const std::wstring logical = prefix.empty() ? widen(e.name) : prefix + L"/" + widen(e.name);
+            if (e.type == EntryType::Directory) walk(i, logical);
+            else file_paths.push_back({i, logical});
+        }
+    };
+    walk(0, L"");
+
+    /* Layout-preserving rewrite: load the original image verbatim and leave every
+     * untouched byte exactly where it is. Replaced entries are appended past the
+     * end of the archive and only their table-of-contents record is patched, so
+     * an edit never disturbs unrelated data (and a no-op save is bit-identical). */
+    std::vector<uint8_t> image = reader.read(0, static_cast<size_t>(reader.size));
+    uint64_t append_cursor = align512(image.size());
+
+    std::vector<int> applied(rep_count, 0);
+    for (auto &fp : file_paths) {
+        const Entry &e = parsed[fp.first];
+        int rep = -1;
+        for (int r = 0; r < rep_count; ++r)
+            if (reps[r].entry_path && _wcsicmp(reps[r].entry_path, fp.second.c_str()) == 0) { rep = r; break; }
+        if (rep < 0) continue;                       /* untouched -> stays in place */
+
+        const uint8_t *nd = reps[rep].data;
+        const size_t   ns = reps[rep].data_size;
+        const bool is_resource = (e.type == EntryType::Resource);
+        applied[rep] = 1;
+
+        uint32_t new_size = 0, sys = 0, gfx = 0, unc = 0;
+        if (is_resource) {
+            if (ns < 16 || rd32(nd) != RSC7_MAGIC)
+                throw std::runtime_error("replacement for a resource entry is not an RSC7 file");
+            if (ns >= RPF_RES_SIZE_MAX)
+                throw std::runtime_error("replacement resource is too large for the RPF size field");
+            new_size = static_cast<uint32_t>(ns);    /* full RSC7 file incl. header */
+            sys = rd32(nd + 8);
+            gfx = rd32(nd + 12);
+        } else {
+            if (ns >= RPF_RES_SIZE_MAX)
+                throw std::runtime_error("replacement binary file is too large for the RPF size field");
+            new_size = static_cast<uint32_t>(ns);
+            unc = static_cast<uint32_t>(ns);
+        }
+
+        const uint64_t off = append_cursor;
+        const uint64_t foff_blocks = off / RPF_BLOCK_SIZE;
+        const uint64_t foff_limit = is_resource ? 0x7FFFFFULL : 0xFFFFFFULL;
+        if (foff_blocks > foff_limit)
+            throw std::runtime_error("archive grew beyond the RPF offset limit");
+
+        image.resize(static_cast<size_t>(off + align512(ns)), 0);
+        if (ns) std::copy(nd, nd + ns, image.begin() + static_cast<size_t>(off));
+        append_cursor = off + align512(ns);
+
+        /* Patch this entry's TOC record (offset/size/flags) in the decrypted blob. */
+        uint8_t *blob = entries_plain.data() + static_cast<size_t>(fp.first) * 16;
+        if (is_resource) {
+            blob[2] = static_cast<uint8_t>(new_size);
+            blob[3] = static_cast<uint8_t>(new_size >> 8U);
+            blob[4] = static_cast<uint8_t>(new_size >> 16U);
+            blob[5] = static_cast<uint8_t>(foff_blocks);
+            blob[6] = static_cast<uint8_t>(foff_blocks >> 8U);
+            blob[7] = static_cast<uint8_t>(((foff_blocks >> 16U) & 0x7FU) | 0x80U);
+            wr32(sys, blob + 8);
+            wr32(gfx, blob + 12);
+        } else {
+            const uint32_t name_offset = static_cast<uint32_t>(rd64(blob) & 0xFFFFU);
+            const uint64_t low = (static_cast<uint64_t>(name_offset) & 0xFFFFU) |
+                                 ((static_cast<uint64_t>(new_size) & 0xFFFFFFU) << 16U) |
+                                 ((foff_blocks & 0xFFFFFFU) << 40U);
+            for (int b = 0; b < 8; ++b) blob[b] = static_cast<uint8_t>(low >> (8U * b));
+            wr32(unc, blob + 8);
+        }
+    }
+
+    int applied_count = 0;
+    for (int r = 0; r < rep_count; ++r) applied_count += applied[r];
+
+    /* No replacements -> emit the original bytes untouched (bit-identical). */
+    if (applied_count > 0) {
+        std::vector<uint8_t> out_entries = entries_plain;
+        if (encryption == AES_ENCRYPTION)
+            out_entries = crypto.encrypt_aes(std::move(out_entries));
+        std::copy(out_entries.begin(), out_entries.end(), image.begin() + 16);
+    }
+
+    std::ofstream out(dst_path, std::ios::binary | std::ios::trunc);
+    if (!out) throw std::runtime_error("failed to open destination RPF for writing");
+    out.write(reinterpret_cast<const char *>(image.data()), static_cast<std::streamsize>(image.size()));
+    if (!out) throw std::runtime_error("failed to write destination RPF");
+    return applied_count;
+}
+
 }  // namespace
 
 extern "C" int rpf_scan_file(const wchar_t *path, RpfScanCallback callback, void *context,
@@ -377,6 +573,20 @@ extern "C" int rpf_scan_file(const wchar_t *path, RpfScanCallback callback, void
             archive_name.pop_back();
         }
         return scan_archive(reader, Archive{0, reader.size, {}, archive_name}, callback, context);
+    } catch (const std::exception &ex) {
+        if (error && error_size) {
+            std::strncpy(error, ex.what(), error_size - 1);
+            error[error_size - 1] = 0;
+        }
+        return -1;
+    }
+}
+
+extern "C" int rpf_rewrite_file(const wchar_t *src_path, const wchar_t *dst_path,
+                                const RpfReplacement *replacements, int replacement_count,
+                                char *error, size_t error_size) {
+    try {
+        return rewrite_archive(src_path, dst_path, replacements, replacement_count);
     } catch (const std::exception &ex) {
         if (error && error_size) {
             std::strncpy(error, ex.what(), error_size - 1);

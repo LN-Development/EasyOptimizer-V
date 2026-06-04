@@ -1328,6 +1328,126 @@ static void save_project_cache(void) {
         MB_OK | MB_ICONINFORMATION);
 }
 
+/* ── RPF write-back ────────────────────────────────────────────────────
+ * Repack edited entries back into their original (non-nested, non-NG) RPF.
+ * Entries that live inside a *nested* .rpf cannot be repacked and are reported
+ * so the caller can fall back to a sidecar export. */
+
+static bool entry_is_nested_rpf(const wchar_t *entry) {
+    wchar_t tmp[EO_MAX_PATH];
+    wcsncpy(tmp, entry, EO_MAX_PATH - 1);
+    tmp[EO_MAX_PATH - 1] = 0;
+    for (wchar_t *p = tmp; *p; p++) {
+        *p = (wchar_t)towlower(*p);
+        if (*p == L'\\') *p = L'/';
+    }
+    return wcsstr(tmp, L".rpf/") != NULL;
+}
+
+static uint8_t *read_whole_file(const wchar_t *path, size_t *out_size) {
+    FILE *f = _wfopen(path, L"rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (n <= 0) { fclose(f); return NULL; }
+    uint8_t *buf = (uint8_t *)malloc((size_t)n);
+    if (buf && fread(buf, 1, (size_t)n, f) != (size_t)n) { free(buf); buf = NULL; }
+    fclose(f);
+    if (out_size) *out_size = (size_t)n;
+    return buf;
+}
+
+/* Serialize an archive (via the normal savers) into a freshly allocated buffer. */
+static uint8_t *serialize_archive(YtdFile *a, size_t *out_size) {
+    wchar_t dir[MAX_PATH], tmp[MAX_PATH];
+    if (!GetTempPathW(MAX_PATH, dir)) return NULL;
+    if (!GetTempFileNameW(dir, L"eov", 0, tmp)) return NULL;
+    uint8_t *buf = NULL;
+    if (save_archive_to_path(a, tmp)) buf = read_whole_file(tmp, out_size);
+    DeleteFileW(tmp);
+    return buf;
+}
+
+static bool backup_file_versioned(const wchar_t *path) {
+    wchar_t bak[MAX_PATH];
+    for (int i = 1; i < 10000; i++) {
+        _snwprintf(bak, MAX_PATH, L"%s.bak%d", path, i);
+        bak[MAX_PATH - 1] = 0;
+        if (!PathFileExistsW(bak)) return CopyFileW(path, bak, TRUE);
+    }
+    return false;
+}
+
+/* Repack every non-nested edited entry back into its source RPF (one rewrite
+ * per distinct container). Returns entries written; reports nested/failed. */
+static int save_into_original_rpfs(int *out_skipped_nested, int *out_failed) {
+    int saved = 0, skipped_nested = 0, failed = 0;
+    enum { MAX_SRC = 512, MAX_REPS = 4096 };
+    static wchar_t done_src[MAX_SRC][EO_MAX_PATH];
+    int done_count = 0;
+
+    for (int i = 0; i < g_app.ytd_count; i++) {
+        YtdFile *a = g_app.ytds[i];
+        if (!a->from_rpf || a->is_rpf_group || a->is_preview || !a->rpf_source_path[0]) continue;
+
+        bool seen = false;
+        for (int d = 0; d < done_count; d++)
+            if (_wcsicmp(done_src[d], a->rpf_source_path) == 0) { seen = true; break; }
+        if (seen) continue;
+        if (done_count < MAX_SRC) {
+            wcsncpy(done_src[done_count], a->rpf_source_path, EO_MAX_PATH - 1);
+            done_src[done_count][EO_MAX_PATH - 1] = 0;
+            done_count++;
+        }
+
+        RpfReplacement *reps = (RpfReplacement *)calloc(MAX_REPS, sizeof(RpfReplacement));
+        uint8_t **bufs = (uint8_t **)calloc(MAX_REPS, sizeof(uint8_t *));
+        if (!reps || !bufs) { free(reps); free(bufs); failed++; continue; }
+        int n = 0;
+        for (int j = i; j < g_app.ytd_count && n < MAX_REPS; j++) {
+            YtdFile *b = g_app.ytds[j];
+            if (!b->from_rpf || b->is_rpf_group || b->is_preview) continue;
+            if (_wcsicmp(b->rpf_source_path, a->rpf_source_path) != 0) continue;
+            if (entry_is_nested_rpf(b->rpf_entry_path)) { skipped_nested++; continue; }
+            size_t sz = 0;
+            uint8_t *buf = serialize_archive(b, &sz);
+            if (!buf) { failed++; continue; }
+            bufs[n] = buf;
+            reps[n].entry_path = b->rpf_entry_path;
+            reps[n].data = buf;
+            reps[n].data_size = sz;
+            n++;
+        }
+
+        if (n > 0) {
+            wchar_t tmp_out[MAX_PATH];
+            _snwprintf(tmp_out, MAX_PATH, L"%s.eovtmp", a->rpf_source_path);
+            tmp_out[MAX_PATH - 1] = 0;
+            char err[256] = {0};
+            int applied = rpf_rewrite_file(a->rpf_source_path, tmp_out, reps, n, err, sizeof(err));
+            if (applied < 0) {
+                LOG_ERR("RPF write-back failed for %ls: %hs", a->rpf_source_path, err);
+                DeleteFileW(tmp_out);
+                failed += n;
+            } else if (backup_file_versioned(a->rpf_source_path) &&
+                       MoveFileExW(tmp_out, a->rpf_source_path, MOVEFILE_REPLACE_EXISTING)) {
+                saved += applied;
+                LOG("RPF write-back: %d entries repacked into %ls", applied, a->rpf_source_path);
+            } else {
+                DeleteFileW(tmp_out);
+                failed += n;
+            }
+        }
+        for (int k = 0; k < n; k++) free(bufs[k]);
+        free(reps);
+        free(bufs);
+    }
+    if (out_skipped_nested) *out_skipped_nested = skipped_nested;
+    if (out_failed) *out_failed = failed;
+    return saved;
+}
+
 static void save_all(void) {
     if (g_app.ytd_count == 0) {
         gui_update_status("No files loaded");
@@ -1352,9 +1472,10 @@ static void save_all(void) {
     dialog.pszMainInstruction = trw(L"Choose how to save the modified files",
         L"Escolha como salvar os arquivos modificados", L"Elija cómo guardar los archivos modificados",
         L"Выберите способ сохранения измененных файлов");
-    dialog.pszContent = trw(L"Project cache snapshots are stored next to the executable. RPF/model entries are exported as .ytd sidecars; the original container/model is not repacked yet.",
-        L"Snapshots do cache ficam ao lado do executável.", L"Las instantáneas de caché se guardan junto al ejecutable.",
-        L"Снимки кэша проекта хранятся рядом с исполняемым файлом.");
+    dialog.pszContent = trw(L"Project cache snapshots are stored next to the executable. Non-nested, non-NG RPF entries are repacked into the original container (a .bak copy is kept); entries inside nested RPFs are exported as .ytd sidecars.",
+        L"Snapshots do cache ficam ao lado do executável. Entradas de RPF não-aninhadas e não-NG são regravadas no container original (mantém-se cópia .bak); entradas em RPFs aninhados saem como sidecars .ytd.",
+        L"Las instantáneas de caché se guardan junto al ejecutable. Las entradas RPF no anidadas y no NG se reempaquetan en el contenedor original.",
+        L"Снимки кэша проекта хранятся рядом с исполняемым файлом. Невложенные не-NG записи RPF перезаписываются в исходный контейнер.");
     dialog.cButtons = ARRAYSIZE(buttons);
     dialog.pButtons = buttons;
     dialog.nDefaultButton = ID_SAVE_PROJECT_CACHE;
@@ -1374,7 +1495,7 @@ static void save_all(void) {
         return;
     }
 
-    int saved = 0, skipped = 0;
+    int saved = 0, skipped = 0, rpf_nested = 0;
     if (choice == ID_SAVE_TO_FOLDER) {
         wchar_t folder[MAX_PATH];
         if (!select_folder(g_app.hwnd_main,
@@ -1386,10 +1507,17 @@ static void save_all(void) {
         }
         saved = save_archives_to_folder(folder, &skipped);
     } else {
+        /* Repack non-nested RPF entries back into their original containers. */
+        int rpf_failed = 0;
+        int rpf_saved = save_into_original_rpfs(&rpf_nested, &rpf_failed);
+        saved += rpf_saved;
+        skipped += rpf_failed;
         for (int i = 0; i < g_app.ytd_count; i++) {
             YtdFile *archive = g_app.ytds[i];
             if (archive->is_rpf_group) continue;
             if (archive->is_preview) continue;   /* uncommitted migration preview */
+            /* Non-nested RPF entries were already repacked into the container. */
+            if (archive->from_rpf && !entry_is_nested_rpf(archive->rpf_entry_path)) continue;
             if (archive->type == ARCHIVE_MODEL_READONLY) {
                 wchar_t output[MAX_PATH];
                 if (archive->from_rpf && archive->rpf_parent) {
@@ -1420,7 +1548,11 @@ static void save_all(void) {
             else skipped++;
         }
     }
-    gui_update_status("Saved %d files (%d skipped); cache: %d files", saved, skipped, cache_saved);
+    if (rpf_nested > 0)
+        gui_update_status("Saved %d files (%d skipped, %d nested-RPF sidecars); cache: %d files",
+                          saved, skipped, rpf_nested, cache_saved);
+    else
+        gui_update_status("Saved %d files (%d skipped); cache: %d files", saved, skipped, cache_saved);
 }
 
 /* ── Detect / Migrate Duplicates ───────────────────────────────────── */
