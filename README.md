@@ -10,12 +10,12 @@ Edit YTD files without extracting, find duplicates, resize, generate mips, and m
 ### File Support
 | Format | Read | Write | Notes |
 |--------|------|-------|-------|
-| `.ytd` | ✅ | ✅ | GTA V texture dictionary (RSC7, Legacy & Gen9) |
+| `.ytd` | ✅ | ✅ | GTA V texture dictionary (Gen 8 & Gen9) |
 | `.wtd` | ✅ | ✅ | GTA IV streaming texture dictionary (RSC5) |
-| `.ydr` | ✅ | — | GTA V drawable (embedded textures extracted) |
-| `.yft` | ✅ | — | GTA V fragment (embedded textures extracted) |
-| `.ydd` | ✅ | — | GTA V drawable dictionary (embedded textures extracted) |
-| `.rpf` | ✅ | — | RPF7 archives — AES, NG and CFXP (OpenIV/FiveM mods) decryption supported |
+| `.ydr` | ✅ | ✅ | GTA V texture dictionary (Gen 8 & Gen9) |
+| `.yft` | ✅ | ✅ | GTA V texture dictionary (Gen 8 & Gen9) |
+| `.ydd` | ✅ | ✅ | GTA V texture dictionary (Gen 8 & Gen9) |
+| `.rpf` | ✅ | ✅ | RPF7 archives GTA V drawable dictionary (files extracted)  |
 
 ### Texture Operations
 - **Smart Optimize** — Batch resize and recompress with configurable max resolution, format, and mipmap settings
